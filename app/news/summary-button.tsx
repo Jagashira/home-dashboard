@@ -8,14 +8,30 @@ type SummaryButtonProps = {
   summary: string | null;
 };
 
+type SummaryUsage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  input_tokens_details?: {
+    cached_tokens?: number;
+  };
+};
+
 export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [usage, setUsage] = useState<SummaryUsage | null>(null);
+  const [costUsd, setCostUsd] = useState<number | null>(null);
+  const [usedFullArticle, setUsedFullArticle] = useState<boolean | null>(null);
 
   const summarize = async () => {
     setLoading(true);
     setError(null);
+    setResult(null);
+    setUsage(null);
+    setCostUsd(null);
+    setUsedFullArticle(null);
 
     try {
       const response = await fetch("/api/news/summarize", {
@@ -32,6 +48,9 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
       }
 
       setResult(payload.summary);
+      setUsage(payload.usage ?? null);
+      setCostUsd(typeof payload.estimatedCostUsd === "number" ? payload.estimatedCostUsd : null);
+      setUsedFullArticle(typeof payload.usedFullArticle === "boolean" ? payload.usedFullArticle : null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Summarization failed");
     } finally {
@@ -47,6 +66,18 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
 
       {error ? <p className="error-text">{error}</p> : null}
       {result ? <pre className="summary-box">{result}</pre> : null}
+      {usage ? (
+        <p className="meta-text">
+          tokens in/out/total: {usage.input_tokens ?? 0}/{usage.output_tokens ?? 0}/
+          {usage.total_tokens ?? 0}
+          {typeof costUsd === "number" ? ` | est. $${costUsd.toFixed(6)}` : ""}
+          {typeof usedFullArticle === "boolean"
+            ? usedFullArticle
+              ? " | full article"
+              : " | snippet fallback"
+            : ""}
+        </p>
+      ) : null}
     </div>
   );
 }

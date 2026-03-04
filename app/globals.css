@@ -251,6 +251,12 @@ main {
   font-size: 0.9rem;
 }
 
+.meta-text {
+  margin: 0;
+  color: #667085;
+  font-size: 0.74rem;
+}
+
 .error-text {
   margin: 0;
   color: #b42318;

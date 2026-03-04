@@ -62,8 +62,11 @@ Update `.env`:
 
 ```env
 DATABASE_URL="file:../data/app.db"
-NEWS_FEEDS="https://gigazine.net/news/rss_2.0/,https://rss.itmedia.co.jp/rss/2.0/aiplus.xml,https://www.publickey1.jp/atom.xml,https://semiengineering.com/feed/,http://feeds.arstechnica.com/arstechnica/index,https://openai.com/news/rss.xml"
+NEWS_FEEDS="https://gigazine.net/news/rss_2.0/,https://rss.itmedia.co.jp/rss/2.0/aiplus.xml,https://www.publickey1.jp/atom.xml,https://semiengineering.com/feed/,http://feeds.arstechnica.com/arstechnica/index,https://www.marktechpost.com/feed/"
 OPENAI_API="YOUR_OPENAI_API_KEY"
+OPENAI_PRICE_INPUT_PER_1M="0.4"
+OPENAI_PRICE_CACHED_INPUT_PER_1M="0.1"
+OPENAI_PRICE_OUTPUT_PER_1M="1.6"
 ```
 
 Refresh news items:
@@ -71,6 +74,7 @@ Refresh news items:
 - From UI: visit `/news` and click **Refresh News**
 - Save your own keywords and feeds from `/news` → **検索・設定を開く** → **保存して再取得**
 - Click **AIで要約** on each news card to generate a Japanese summary
+  - Shows token usage and estimated USD cost under each summary
 - From CLI:
 
 ```bash
@@ -138,6 +142,7 @@ Updates persistent news settings (keywords/feed URLs/limits/Japanese preference)
 ### `POST /api/news/summarize`
 
 Summarizes one article with OpenAI (`OPENAI_API` in `.env`).
+The API tries to fetch full article body first and falls back to RSS snippet if extraction fails.
 
 ## Migration Included
 

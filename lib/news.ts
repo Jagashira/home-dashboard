@@ -10,7 +10,7 @@ const DEFAULT_FEED_URLS = [
   "https://www.publickey1.jp/atom.xml",
   "https://semiengineering.com/feed/",
   "http://feeds.arstechnica.com/arstechnica/index",
-  "https://openai.com/news/rss.xml"
+  "https://www.marktechpost.com/feed/"
 ];
 const DEFAULT_MAX_ITEMS_PER_FEED = 120;
 const DEFAULT_PAGE_SIZE = 20;
