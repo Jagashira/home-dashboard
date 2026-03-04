@@ -107,9 +107,7 @@ export default async function NewsPage({
     return (
       <section className="stack-lg">
         <section className="panel hero">
-          <p className="eyebrow">RSS + SQLITE</p>
-          <h2>News Feed</h2>
-          <p>検索・設定はモーダルで開き、記事ごとにAI要約できます。</p>
+          <h2>News</h2>
           <div className="actions-row">
             <RefreshNewsButton />
             <NewsControlsModal
@@ -125,11 +123,8 @@ export default async function NewsPage({
               initialPreferJapanese={result.preferences.preferJapanese}
             />
           </div>
-        </section>
-
-        <section className="panel">
-          <h3>Results</h3>
           <p className="status-text">
+            Results:
             total {result.total} items / page {result.page} of {result.totalPages}
           </p>
         </section>

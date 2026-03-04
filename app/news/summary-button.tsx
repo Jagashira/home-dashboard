@@ -26,6 +26,15 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
   const [usedFullArticle, setUsedFullArticle] = useState<boolean | null>(null);
 
   const summarize = async () => {
+    if (result) {
+      const shouldResummarize = window.confirm(
+        "要約済みです。もう一度要約しますか？"
+      );
+      if (!shouldResummarize) {
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
