@@ -1,8 +1,11 @@
 export default function BudgetPage() {
   return (
-    <section>
-      <h1>Budget</h1>
-      <p>Placeholder page. Budget features will be added in a follow-up PR.</p>
+    <section className="stack-lg">
+      <section className="panel hero">
+        <p className="eyebrow">PLACEHOLDER</p>
+        <h2>Budget</h2>
+        <p>Budget tracking and monthly rollups will be added in a follow-up PR.</p>
+      </section>
     </section>
   );
 }

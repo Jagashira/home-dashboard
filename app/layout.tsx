@@ -14,13 +14,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <nav>
-          <Link href="/">Home</Link>
-          <Link href="/news">News</Link>
-          <Link href="/shop">Shop</Link>
-          <Link href="/budget">Budget</Link>
-        </nav>
-        <main>{children}</main>
+        <div className="app-shell">
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">LOCAL NETWORK DASHBOARD</p>
+              <h1 className="brand">Home Dashboard</h1>
+            </div>
+            <p className="topbar-note">LAN / Tailscale only</p>
+          </header>
+
+          <nav className="tabs" aria-label="Main navigation">
+            <Link href="/">Home</Link>
+            <Link href="/news">News</Link>
+            <Link href="/shop">Shop</Link>
+            <Link href="/budget">Budget</Link>
+          </nav>
+
+          <main>{children}</main>
+        </div>
       </body>
     </html>
   );
