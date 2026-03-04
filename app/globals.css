@@ -46,38 +46,7 @@ p {
 .app-shell {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
-}
-
-.topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.brand {
-  font-size: clamp(1.5rem, 2vw, 2rem);
-  margin-bottom: 0;
-}
-
-.eyebrow {
-  margin-bottom: 0.35rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
-.topbar-note {
-  margin: 0;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  font-size: 0.8rem;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(6px);
+  padding: 1rem 1rem 3rem;
 }
 
 .tabs {
@@ -251,6 +220,14 @@ main {
   font-size: 0.9rem;
 }
 
+.refresh-status {
+  min-height: 1.25rem;
+}
+
+.refresh-status.is-empty {
+  visibility: hidden;
+}
+
 .meta-text {
   margin: 0;
   color: #667085;
@@ -319,15 +296,16 @@ main {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 1rem;
   background: rgba(14, 16, 24, 0.45);
   z-index: 9999;
 }
 
 .modal-card {
-  width: min(940px, 95vw);
+  width: min(920px, 95vw);
   max-height: 88vh;
   overflow: auto;
   border: 1px solid var(--card-border);
@@ -343,6 +321,29 @@ main {
   gap: 0.75rem;
 }
 
+.search-head-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.search-result-meta {
+  font-size: 0.84rem;
+}
+
+.label-caption {
+  margin: 0;
+  color: #4d5a72;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.search-card {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .pagination-row {
   display: flex;
   justify-content: center;
@@ -351,10 +352,6 @@ main {
 }
 
 @media (max-width: 640px) {
-  .topbar {
-    flex-direction: column;
-  }
-
   .app-shell {
     padding: 1rem 0.75rem 2rem;
   }

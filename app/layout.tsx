@@ -15,14 +15,6 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <div className="app-shell">
-          <header className="topbar">
-            <div>
-              <p className="eyebrow">LOCAL NETWORK DASHBOARD</p>
-              <h1 className="brand">Home Dashboard</h1>
-            </div>
-            <p className="topbar-note">LAN / Tailscale only</p>
-          </header>
-
           <nav className="tabs" aria-label="Main navigation">
             <Link href="/">Home</Link>
             <Link href="/news">News</Link>

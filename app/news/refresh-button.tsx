@@ -36,7 +36,9 @@ export function RefreshNewsButton() {
       <button className="button-primary" type="button" onClick={refresh} disabled={isPending}>
         {isPending ? "Refreshing..." : "Refresh News"}
       </button>
-      {status ? <p className="status-text">{status}</p> : null}
+      <p className={status ? "status-text refresh-status" : "status-text refresh-status is-empty"}>
+        {status ?? "status placeholder"}
+      </p>
     </div>
   );
 }

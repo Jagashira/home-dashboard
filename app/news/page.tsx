@@ -106,8 +106,7 @@ export default async function NewsPage({
 
     return (
       <section className="stack-lg">
-        <section className="panel hero">
-          <h2>News</h2>
+        <section className="panel search-head-card">
           <div className="actions-row">
             <RefreshNewsButton />
             <NewsControlsModal
@@ -123,8 +122,7 @@ export default async function NewsPage({
               initialPreferJapanese={result.preferences.preferJapanese}
             />
           </div>
-          <p className="status-text">
-            Results:
+          <p className="status-text search-result-meta">
             total {result.total} items / page {result.page} of {result.totalPages}
           </p>
         </section>
