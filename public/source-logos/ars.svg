@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="80" viewBox="0 0 240 80" role="img" aria-label="Ars Technica">
+  <rect width="240" height="80" rx="12" fill="#ffffff" stroke="#d0d4de"/>
+  <text x="18" y="53" font-family="Georgia, serif" font-size="34" fill="#0f172a">Ars</text>
+  <text x="78" y="53" font-family="Arial, sans-serif" font-size="24" fill="#1f2937">Technica</text>
+</svg>

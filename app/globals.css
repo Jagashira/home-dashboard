@@ -313,11 +313,18 @@ main {
 
 .search-head-card {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(245, 248, 255, 0.88)),
+    radial-gradient(circle at 85% 20%, rgba(59, 130, 246, 0.12), transparent 45%);
 }
 
 .search-result-meta {
-  font-size: 0.84rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .refresh-control {
@@ -347,10 +354,38 @@ main {
 }
 
 .search-card {
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 0.8rem;
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 14px;
+  padding: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 249, 255, 0.92));
+}
+
+.news-card {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.news-card a {
+  width: fit-content;
+}
+
+.source-badge {
+  width: 120px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: #fff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.source-logo {
+  width: 120px;
+  height: 40px;
+  object-fit: contain;
+  display: block;
 }
 
 .pagination-row {
@@ -367,5 +402,10 @@ main {
 
   .head-actions {
     grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .search-head-card {
+    padding: 0.85rem;
   }
 }

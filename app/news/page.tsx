@@ -3,6 +3,7 @@ import { searchNews } from "@/lib/news";
 import { RefreshNewsButton } from "./refresh-button";
 import { NewsControlsModal } from "./news-controls-modal";
 import { SummaryButton } from "./summary-button";
+import { SourceBadge } from "./source-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -148,7 +149,7 @@ export default async function NewsPage({
                 Read article
               </a>
               <SummaryButton title={item.title} summary={item.summary} url={item.url} />
-              <p className="news-source">Source: {item.feedUrl}</p>
+              <SourceBadge articleUrl={item.url} feedUrl={item.feedUrl} />
             </article>
           ))}
         </section>

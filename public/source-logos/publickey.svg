@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="80" viewBox="0 0 240 80" role="img" aria-label="Publickey">
+  <rect width="240" height="80" rx="12" fill="#ffffff" stroke="#d0d4de"/>
+  <rect x="16" y="18" width="44" height="44" rx="8" fill="#2f5bea"/>
+  <text x="30" y="49" font-family="Arial Black, Arial, sans-serif" font-size="26" fill="#ffffff">P</text>
+  <text x="72" y="52" font-family="Arial Black, Arial, sans-serif" font-size="28" fill="#111827">Publickey</text>
+</svg>
