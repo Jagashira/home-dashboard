@@ -22,7 +22,7 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [usage, setUsage] = useState<SummaryUsage | null>(null);
-  const [costUsd, setCostUsd] = useState<number | null>(null);
+  const [costJpy, setCostJpy] = useState<number | null>(null);
   const [usedFullArticle, setUsedFullArticle] = useState<boolean | null>(null);
 
   const summarize = async () => {
@@ -39,7 +39,7 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
     setError(null);
     setResult(null);
     setUsage(null);
-    setCostUsd(null);
+    setCostJpy(null);
     setUsedFullArticle(null);
 
     try {
@@ -58,7 +58,7 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
 
       setResult(payload.summary);
       setUsage(payload.usage ?? null);
-      setCostUsd(typeof payload.estimatedCostUsd === "number" ? payload.estimatedCostUsd : null);
+      setCostJpy(typeof payload.estimatedCostJpy === "number" ? payload.estimatedCostJpy : null);
       setUsedFullArticle(typeof payload.usedFullArticle === "boolean" ? payload.usedFullArticle : null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Summarization failed");
@@ -79,7 +79,7 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
         <p className="meta-text">
           tokens in/out/total: {usage.input_tokens ?? 0}/{usage.output_tokens ?? 0}/
           {usage.total_tokens ?? 0}
-          {typeof costUsd === "number" ? ` | est. $${costUsd.toFixed(6)}` : ""}
+          {typeof costJpy === "number" ? ` | 概算 ¥${costJpy.toFixed(3)}` : ""}
           {typeof usedFullArticle === "boolean"
             ? usedFullArticle
               ? " | full article"

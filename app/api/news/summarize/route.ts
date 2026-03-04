@@ -13,6 +13,7 @@ const PRICING_PER_1M = {
   cachedInput: Number(process.env.OPENAI_PRICE_CACHED_INPUT_PER_1M ?? "0.1"),
   output: Number(process.env.OPENAI_PRICE_OUTPUT_PER_1M ?? "1.6")
 };
+const USD_TO_JPY = Number(process.env.OPENAI_USD_TO_JPY ?? "150");
 
 function stripHtmlTags(source: string): string {
   return source
@@ -220,12 +221,15 @@ export async function POST(request: NextRequest) {
 
     const usage = (responseJson as { usage?: ResponsesUsage }).usage;
     const estimatedCostUsd = calculateCostUsd(usage);
+    const estimatedCostJpy =
+      typeof estimatedCostUsd === "number" ? estimatedCostUsd * USD_TO_JPY : null;
 
     return NextResponse.json({
       ok: true,
       summary,
       usage: usage ?? null,
       estimatedCostUsd,
+      estimatedCostJpy,
       usedFullArticle: Boolean(articleBody)
     });
   } catch (error) {

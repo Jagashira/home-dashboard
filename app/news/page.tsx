@@ -106,8 +106,12 @@ export default async function NewsPage({
 
     return (
       <section className="stack-lg">
+        <section className="news-title-wrap">
+          <h1 className="news-title">News</h1>
+        </section>
+
         <section className="panel search-head-card">
-          <div className="actions-row">
+          <div className="head-actions">
             <RefreshNewsButton />
             <NewsControlsModal
               initialQuery={result.appliedQuery}
@@ -123,7 +127,7 @@ export default async function NewsPage({
             />
           </div>
           <p className="status-text search-result-meta">
-            total {result.total} items / page {result.page} of {result.totalPages}
+            {result.total} items / {result.page} / {result.totalPages}
           </p>
         </section>
 

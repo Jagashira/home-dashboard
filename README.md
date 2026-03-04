@@ -67,6 +67,7 @@ OPENAI_API="YOUR_OPENAI_API_KEY"
 OPENAI_PRICE_INPUT_PER_1M="0.4"
 OPENAI_PRICE_CACHED_INPUT_PER_1M="0.1"
 OPENAI_PRICE_OUTPUT_PER_1M="1.6"
+OPENAI_USD_TO_JPY="150"
 ```
 
 Refresh news items:
@@ -74,7 +75,7 @@ Refresh news items:
 - From UI: visit `/news` and click **Refresh News**
 - Save your own keywords and feeds from `/news` → **検索・設定を開く** → **保存して再取得**
 - Click **AIで要約** on each news card to generate a Japanese summary
-  - Shows token usage and estimated USD cost under each summary
+  - Shows token usage and estimated JPY cost under each summary
 - From CLI:
 
 ```bash
