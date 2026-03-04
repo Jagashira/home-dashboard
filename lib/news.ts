@@ -13,6 +13,39 @@ type ParsedItem = {
 };
 
 const parser = new Parser();
+let newsTableReady: Promise<void> | null = null;
+
+async function ensureNewsTable() {
+  if (newsTableReady) {
+    return newsTableReady;
+  }
+
+  newsTableReady = (async () => {
+    // Critical startup safety: self-heal local SQLite when migration was not run yet.
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "NewsItem" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "feedUrl" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "url" TEXT NOT NULL,
+        "summary" TEXT,
+        "publishedAt" DATETIME,
+        "dedupHash" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "NewsItem_dedupHash_key" ON "NewsItem"("dedupHash");
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "NewsItem_createdAt_idx" ON "NewsItem"("createdAt");
+    `);
+  })();
+
+  return newsTableReady;
+}
 
 export function getFeedUrls(): string[] {
   const rawFeeds = process.env.NEWS_FEEDS ?? "";
@@ -65,6 +98,8 @@ export async function refreshNewsFromFeeds(): Promise<{
   inserted: number;
   totalFetched: number;
 }> {
+  await ensureNewsTable();
+
   const feedUrls = getFeedUrls();
 
   if (feedUrls.length === 0) {
@@ -107,6 +142,8 @@ export async function refreshNewsFromFeeds(): Promise<{
 }
 
 export async function getLatestNews(limit = 50) {
+  await ensureNewsTable();
+
   return prisma.newsItem.findMany({
     take: limit,
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }]

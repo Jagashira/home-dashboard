@@ -6,7 +6,7 @@ MVP home dashboard built with Next.js App Router, Prisma, and SQLite.
 
 - Next.js App Router pages: `/`, `/news`, `/shop`, `/budget`
 - Prisma + SQLite with DB file in `./data`
-- RSS ingestion flow for `/news`
+- RSS ingestion flow for `/news` (semiconductor, tech, AI feeds by default)
 - `POST /api/news/refresh` to fetch and store latest feed items
 - Dedup based on `sha256(url + title)`
 - Docker Compose support for Raspberry Pi 4 (Ubuntu) and Mac
@@ -59,7 +59,7 @@ Update `.env`:
 
 ```env
 DATABASE_URL="file:../data/app.db"
-NEWS_FEEDS="https://hnrss.org/frontpage,https://feeds.bbci.co.uk/news/rss.xml"
+NEWS_FEEDS="https://semiengineering.com/feed/,http://feeds.arstechnica.com/arstechnica/index,https://openai.com/news/rss.xml"
 ```
 
 Refresh news items:
