@@ -109,6 +109,11 @@ main {
   gap: 1rem;
 }
 
+.stack-md {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .panel {
   padding: 1.1rem;
   border: 1px solid var(--card-border);
@@ -158,6 +163,78 @@ main {
   cursor: wait;
 }
 
+.button-secondary {
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #1f2a44;
+  padding: 0.52rem 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button-secondary:hover {
+  background: #fff;
+  text-decoration: none;
+}
+
+.button-secondary.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+
+.grid-2 {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: #f4f7ff;
+}
+
+.toggle-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #2f3a52;
+}
+
 .status-text {
   margin: 0;
   color: var(--muted);
@@ -194,6 +271,13 @@ main {
   background: #fff;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.86rem;
+}
+
+.pagination-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
 }
 
 @media (max-width: 640px) {

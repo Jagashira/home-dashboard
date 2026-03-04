@@ -20,7 +20,9 @@ export function RefreshNewsButton() {
         return;
       }
 
-      setStatus(`Fetched ${payload.totalFetched}, inserted ${payload.inserted}.`);
+      setStatus(
+        `Fetched ${payload.totalFetched}, keyword-match ${payload.matchedByKeyword}, inserted ${payload.inserted}.`
+      );
       startTransition(() => {
         router.refresh();
       });
