@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { searchNews } from "@/lib/news";
 import { RefreshNewsButton } from "./refresh-button";
-import { NewsFilterForm } from "./filter-form";
-import { NewsSettingsForm } from "./settings-form";
+import { NewsControlsModal } from "./news-controls-modal";
+import { SummaryButton } from "./summary-button";
 
 export const dynamic = "force-dynamic";
 
@@ -109,26 +109,23 @@ export default async function NewsPage({
         <section className="panel hero">
           <p className="eyebrow">RSS + SQLITE</p>
           <h2>News Feed</h2>
-          <p>キーワード・日時で絞り込み、ページネーションで閲覧できます。</p>
-          <RefreshNewsButton />
+          <p>検索・設定はモーダルで開き、記事ごとにAI要約できます。</p>
+          <div className="actions-row">
+            <RefreshNewsButton />
+            <NewsControlsModal
+              initialQuery={result.appliedQuery}
+              initialFrom={from}
+              initialTo={to}
+              initialPageSize={result.pageSize}
+              initialScanLimit={result.scanLimit}
+              initialKeywords={result.preferences.keywords}
+              initialFeedUrls={result.preferences.feedUrls}
+              initialMaxItemsPerFeed={result.preferences.maxItemsPerFeed}
+              initialDefaultPageSize={result.preferences.defaultPageSize}
+              initialPreferJapanese={result.preferences.preferJapanese}
+            />
+          </div>
         </section>
-
-        <NewsFilterForm
-          initialQuery={result.appliedQuery}
-          initialFrom={from}
-          initialTo={to}
-          initialPageSize={result.pageSize}
-          initialScanLimit={result.scanLimit}
-          quickKeywords={result.preferences.keywords}
-        />
-
-        <NewsSettingsForm
-          initialKeywords={result.preferences.keywords}
-          initialFeedUrls={result.preferences.feedUrls}
-          initialMaxItemsPerFeed={result.preferences.maxItemsPerFeed}
-          initialDefaultPageSize={result.preferences.defaultPageSize}
-          initialPreferJapanese={result.preferences.preferJapanese}
-        />
 
         <section className="panel">
           <h3>Results</h3>
@@ -153,6 +150,7 @@ export default async function NewsPage({
               <a href={item.url} target="_blank" rel="noreferrer">
                 Read article
               </a>
+              <SummaryButton title={item.title} summary={item.summary} url={item.url} />
               <p className="news-source">Source: {item.feedUrl}</p>
             </article>
           ))}

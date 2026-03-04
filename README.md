@@ -9,7 +9,8 @@ MVP home dashboard built with Next.js App Router, Prisma, and SQLite.
 - RSS ingestion flow for `/news` (semiconductor, tech, AI feeds by default)
 - `POST /api/news/refresh` to fetch and store latest feed items
 - `/news` keyword/date search with pagination and result limits
-- `/news` settings UI to edit keywords/feed URLs and run re-fetch
+- `/news` controls modal for search/settings (keyword chips + date range shortcuts)
+- `POST /api/news/summarize` for per-article AI summary via OpenAI API
 - Dedup based on `sha256(url + title)`
 - Docker Compose support for Raspberry Pi 4 (Ubuntu) and Mac
 
@@ -62,12 +63,14 @@ Update `.env`:
 ```env
 DATABASE_URL="file:../data/app.db"
 NEWS_FEEDS="https://gigazine.net/news/rss_2.0/,https://rss.itmedia.co.jp/rss/2.0/aiplus.xml,https://www.publickey1.jp/atom.xml,https://semiengineering.com/feed/,http://feeds.arstechnica.com/arstechnica/index,https://openai.com/news/rss.xml"
+OPENAI_API="YOUR_OPENAI_API_KEY"
 ```
 
 Refresh news items:
 
 - From UI: visit `/news` and click **Refresh News**
-- Save your own keywords and feeds from `/news` → **News settings** → **Save and refresh**
+- Save your own keywords and feeds from `/news` → **検索・設定を開く** → **保存して再取得**
+- Click **AIで要約** on each news card to generate a Japanese summary
 - From CLI:
 
 ```bash
@@ -131,6 +134,10 @@ Example response:
 ### `PATCH /api/news/settings`
 
 Updates persistent news settings (keywords/feed URLs/limits/Japanese preference) in local SQLite.
+
+### `POST /api/news/summarize`
+
+Summarizes one article with OpenAI (`OPENAI_API` in `.env`).
 
 ## Migration Included
 

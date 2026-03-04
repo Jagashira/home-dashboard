@@ -114,6 +114,11 @@ main {
   gap: 0.75rem;
 }
 
+.stack-sm {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .panel {
   padding: 1.1rem;
   border: 1px solid var(--card-border);
@@ -228,6 +233,11 @@ main {
   background: #f4f7ff;
 }
 
+.chip-active {
+  border-color: #98b5ff;
+  background: #eaf0ff;
+}
+
 .toggle-field {
   display: inline-flex;
   align-items: center;
@@ -238,6 +248,12 @@ main {
 .status-text {
   margin: 0;
   color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.error-text {
+  margin: 0;
+  color: #b42318;
   font-size: 0.9rem;
 }
 
@@ -271,6 +287,54 @@ main {
   background: #fff;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.86rem;
+}
+
+.inline-input {
+  min-width: 220px;
+  flex: 1;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.52rem 0.7rem;
+  font: inherit;
+}
+
+.summary-box {
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  white-space: pre-wrap;
+  font-family: "Sora", "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(14, 16, 24, 0.45);
+  z-index: 40;
+}
+
+.modal-card {
+  width: min(940px, 95vw);
+  max-height: 88vh;
+  overflow: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: rgba(251, 253, 255, 0.98);
+  padding: 1rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .pagination-row {

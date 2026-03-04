@@ -32,7 +32,7 @@ export function RefreshNewsButton() {
   };
 
   return (
-    <div className="actions-row">
+    <div className="stack-sm">
       <button className="button-primary" type="button" onClick={refresh} disabled={isPending}>
         {isPending ? "Refreshing..." : "Refresh News"}
       </button>
