@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const EXPENSE_CATEGORIES = [
@@ -22,11 +22,26 @@ const EXPENSE_CATEGORIES = [
   "イベント",
   "修理メンテナンス",
   "サブスクリプション",
-  "その他"
+  "その他",
 ] as const;
 
-const EXPENSE_PAYMENT_METHODS = ["クレジット", "交通系", "paypay", "starbucks card", "その他"] as const;
-const INCOME_CATEGORIES = ["給与", "賞与", "副業", "投資", "還付金", "臨時収入", "その他"] as const;
+const EXPENSE_PAYMENT_METHODS = [
+  "現金",
+  "クレジット",
+  "交通系",
+  "paypay",
+  "starbucks card",
+  "その他",
+] as const;
+const INCOME_CATEGORIES = [
+  "給与",
+  "賞与",
+  "副業",
+  "投資",
+  "還付金",
+  "臨時収入",
+  "その他",
+] as const;
 const INCOME_METHODS = ["銀行振込", "現金", "その他"] as const;
 const SOURCE_ACCOUNTS = ["三井住友", "ゆうちょ", "その他"] as const;
 
@@ -55,6 +70,7 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [okText, setOkText] = useState("");
+  const [storeSuggestions, setStoreSuggestions] = useState<Array<{ name: string; usedCount: number }>>([]);
 
   const isExpense = mode === "expense";
 
@@ -65,12 +81,45 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
     paymentMethod: isExpense ? EXPENSE_PAYMENT_METHODS[0] : INCOME_METHODS[0],
     storeName: "",
     sourceAccount: SOURCE_ACCOUNTS[0],
-    memo: ""
+    memo: "",
   });
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  useEffect(() => {
+    if (!isExpense) {
+      setStoreSuggestions([]);
+      return;
+    }
+
+    const q = form.storeName.trim();
+    if (q.length < 1) {
+      setStoreSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/budget/stores?q=${encodeURIComponent(q)}&limit=8`, {
+          signal: controller.signal
+        });
+        const data = await response.json();
+        if (response.ok && data.ok && Array.isArray(data.items)) {
+          setStoreSuggestions(data.items);
+        }
+      } catch {
+        // ignore autocomplete fetch errors
+      }
+    }, 140);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [form.storeName, isExpense]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,13 +136,13 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
         paymentMethod: form.paymentMethod,
         storeName: isExpense ? form.storeName : form.storeName || "入金",
         sourceAccount: form.sourceAccount,
-        memo: form.memo
+        memo: form.memo,
       };
 
       const response = await fetch("/api/budget/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -108,7 +157,7 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
         ...prev,
         amount: "",
         storeName: "",
-        memo: ""
+        memo: "",
       }));
       router.refresh();
     } catch (e) {
@@ -150,11 +199,19 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
           <label className="field">
             <span>店名</span>
             <input
+              list="expense-store-suggestions"
               required
               value={form.storeName}
               onChange={(event) => update("storeName", event.target.value)}
               placeholder="スーパー、コンビニ、EC など"
             />
+            <datalist id="expense-store-suggestions">
+              {storeSuggestions.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.name} ({item.usedCount})
+                </option>
+              ))}
+            </datalist>
           </label>
         ) : (
           <label className="field">
@@ -170,12 +227,17 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
         <div className="grid-2">
           <label className="field">
             <span>カテゴリ</span>
-            <select value={form.category} onChange={(event) => update("category", event.target.value)}>
-              {(isExpense ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map((item) => (
-                <option value={item} key={item}>
-                  {item}
-                </option>
-              ))}
+            <select
+              value={form.category}
+              onChange={(event) => update("category", event.target.value)}
+            >
+              {(isExpense ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(
+                (item) => (
+                  <option value={item} key={item}>
+                    {item}
+                  </option>
+                ),
+              )}
             </select>
           </label>
 
@@ -185,11 +247,13 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
               value={form.paymentMethod}
               onChange={(event) => update("paymentMethod", event.target.value)}
             >
-              {(isExpense ? EXPENSE_PAYMENT_METHODS : INCOME_METHODS).map((item) => (
-                <option value={item} key={item}>
-                  {item}
-                </option>
-              ))}
+              {(isExpense ? EXPENSE_PAYMENT_METHODS : INCOME_METHODS).map(
+                (item) => (
+                  <option value={item} key={item}>
+                    {item}
+                  </option>
+                ),
+              )}
             </select>
           </label>
         </div>
@@ -221,7 +285,11 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
         </label>
 
         <div className="actions-row">
-          <button className="button-primary" type="submit" disabled={submitting}>
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={submitting}
+          >
             {submitting ? "保存中..." : "保存する"}
           </button>
           {okText ? <p className="status-text">{okText}</p> : null}

@@ -162,6 +162,34 @@ export async function deleteBudgetEntry(id: string) {
   return toSafeNumber(deleted);
 }
 
+export async function getExpenseStoreSuggestions(query: string, limit = 8) {
+  await ensureBudgetSchema();
+
+  const q = query.trim();
+  if (!q) {
+    return [] as Array<{ name: string; usedCount: number }>;
+  }
+
+  const like = `${q}%`;
+  const rows = await prisma.$queryRaw<Array<{ name: string; usedCount: number | bigint }>>`
+    SELECT
+      storeName as name,
+      COUNT(*) as usedCount
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND storeName != ''
+      AND storeName LIKE ${like}
+    GROUP BY storeName
+    ORDER BY usedCount DESC, MAX(date) DESC
+    LIMIT ${Math.max(1, Math.min(20, limit))}
+  `;
+
+  return rows.map((row) => ({
+    name: row.name,
+    usedCount: toSafeNumber(row.usedCount)
+  }));
+}
+
 export async function getBudgetDashboard(input: {
   month: string;
   date: string;

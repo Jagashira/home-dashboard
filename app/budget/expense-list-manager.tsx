@@ -22,10 +22,17 @@ const EXPENSE_CATEGORIES = [
   "イベント",
   "修理メンテナンス",
   "サブスクリプション",
-  "その他"
+  "その他",
 ] as const;
 
-const EXPENSE_PAYMENT_METHODS = ["クレジット", "交通系", "paypay", "starbucks card", "その他"] as const;
+const EXPENSE_PAYMENT_METHODS = [
+  "現金",
+  "クレジット",
+  "交通系",
+  "paypay",
+  "starbucks card",
+  "その他",
+] as const;
 
 type ExpenseItem = {
   id: string;
@@ -48,17 +55,16 @@ type EditState = {
 };
 
 function formatDate(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(date);
+  const [y, m, d] = value.split("-");
+  if (!y || !m || !d) return value;
+  return `${y}/${m}/${d}`;
 }
 
 function formatYen(value: number) {
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0
-  }).format(value);
+  const rounded = Math.round(value);
+  const sign = rounded < 0 ? "-" : "";
+  const abs = Math.abs(rounded);
+  return `${sign}¥${abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 }
 
 export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
@@ -74,7 +80,7 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
     setDeletingId(id);
     try {
       const response = await fetch(`/api/budget/entries/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
@@ -97,7 +103,7 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
       category: item.category,
       paymentMethod: item.paymentMethod,
       storeName: item.storeName,
-      memo: item.memo ?? ""
+      memo: item.memo ?? "",
     });
   }
 
@@ -116,8 +122,8 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
           category: editing.category,
           paymentMethod: editing.paymentMethod,
           storeName: editing.storeName,
-          memo: editing.memo
-        })
+          memo: editing.memo,
+        }),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) {
@@ -149,9 +155,15 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                   <p className="budget-list-meta">
                     {item.category} / {item.paymentMethod}
                   </p>
-                  {item.memo ? <p className="budget-list-memo">{item.memo}</p> : null}
+                  {item.memo ? (
+                    <p className="budget-list-memo">{item.memo}</p>
+                  ) : null}
                   <div className="budget-list-actions">
-                    <button className="button-secondary" type="button" onClick={() => openEdit(item)}>
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      onClick={() => openEdit(item)}
+                    >
                       編集
                     </button>
                     <button
@@ -172,11 +184,20 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
       </section>
 
       {editing ? (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="支出編集">
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="支出編集"
+        >
           <section className="modal-card budget-edit-modal">
             <div className="modal-header">
               <h3>支出を編集</h3>
-              <button className="button-secondary" type="button" onClick={() => setEditing(null)}>
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() => setEditing(null)}
+              >
                 閉じる
               </button>
             </div>
@@ -188,7 +209,11 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                     type="date"
                     required
                     value={editing.date}
-                    onChange={(event) => setEditing((prev) => (prev ? { ...prev, date: event.target.value } : prev))}
+                    onChange={(event) =>
+                      setEditing((prev) =>
+                        prev ? { ...prev, date: event.target.value } : prev,
+                      )
+                    }
                   />
                 </label>
                 <label className="field">
@@ -199,7 +224,11 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                     step={1}
                     required
                     value={editing.amount}
-                    onChange={(event) => setEditing((prev) => (prev ? { ...prev, amount: event.target.value } : prev))}
+                    onChange={(event) =>
+                      setEditing((prev) =>
+                        prev ? { ...prev, amount: event.target.value } : prev,
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -209,7 +238,11 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                 <input
                   required
                   value={editing.storeName}
-                  onChange={(event) => setEditing((prev) => (prev ? { ...prev, storeName: event.target.value } : prev))}
+                  onChange={(event) =>
+                    setEditing((prev) =>
+                      prev ? { ...prev, storeName: event.target.value } : prev,
+                    )
+                  }
                 />
               </label>
 
@@ -218,7 +251,11 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                   <span>カテゴリ</span>
                   <select
                     value={editing.category}
-                    onChange={(event) => setEditing((prev) => (prev ? { ...prev, category: event.target.value } : prev))}
+                    onChange={(event) =>
+                      setEditing((prev) =>
+                        prev ? { ...prev, category: event.target.value } : prev,
+                      )
+                    }
                   >
                     {EXPENSE_CATEGORIES.map((item) => (
                       <option value={item} key={item}>
@@ -231,7 +268,13 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                   <span>支払い方法</span>
                   <select
                     value={editing.paymentMethod}
-                    onChange={(event) => setEditing((prev) => (prev ? { ...prev, paymentMethod: event.target.value } : prev))}
+                    onChange={(event) =>
+                      setEditing((prev) =>
+                        prev
+                          ? { ...prev, paymentMethod: event.target.value }
+                          : prev,
+                      )
+                    }
                   >
                     {EXPENSE_PAYMENT_METHODS.map((item) => (
                       <option value={item} key={item}>
@@ -247,15 +290,27 @@ export function ExpenseListManager({ items }: { items: ExpenseItem[] }) {
                 <textarea
                   rows={3}
                   value={editing.memo}
-                  onChange={(event) => setEditing((prev) => (prev ? { ...prev, memo: event.target.value } : prev))}
+                  onChange={(event) =>
+                    setEditing((prev) =>
+                      prev ? { ...prev, memo: event.target.value } : prev,
+                    )
+                  }
                 />
               </label>
 
               <div className="actions-row">
-                <button className="button-primary" type="submit" disabled={saving}>
+                <button
+                  className="button-primary"
+                  type="submit"
+                  disabled={saving}
+                >
                   {saving ? "保存中..." : "更新する"}
                 </button>
-                <button className="button-secondary" type="button" onClick={() => setEditing(null)}>
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={() => setEditing(null)}
+                >
                   キャンセル
                 </button>
               </div>
