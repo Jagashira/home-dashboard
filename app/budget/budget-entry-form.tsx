@@ -23,17 +23,23 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function BudgetEntryForm() {
+export function BudgetEntryForm({
+  initialEntryType = "EXPENSE",
+  lockEntryType = false
+}: {
+  initialEntryType?: "EXPENSE" | "INCOME";
+  lockEntryType?: boolean;
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [okText, setOkText] = useState("");
   const [form, setForm] = useState<FormState>({
-    entryType: "EXPENSE",
+    entryType: initialEntryType,
     date: todayYmd(),
     amount: "",
-    category: "食費",
-    paymentMethod: "クレジット",
+    category: initialEntryType === "INCOME" ? "給与" : "食費",
+    paymentMethod: initialEntryType === "INCOME" ? "銀行入金" : "クレジット",
     sourceAccount: "三井住友",
     storeName: "",
     memo: ""
@@ -91,36 +97,38 @@ export function BudgetEntryForm() {
     <section className="panel budget-form-card">
       <h2>収支入力</h2>
       <form className="stack-md" onSubmit={onSubmit}>
-        <div className="chip-row">
-          <button
-            type="button"
-            className={`chip ${form.entryType === "EXPENSE" ? "chip-active" : ""}`}
-            onClick={() =>
-              setForm((prev) => ({
-                ...prev,
-                entryType: "EXPENSE",
-                category: EXPENSE_CATEGORIES[0],
-                paymentMethod: "クレジット"
-              }))
-            }
-          >
-            支出
-          </button>
-          <button
-            type="button"
-            className={`chip ${form.entryType === "INCOME" ? "chip-active" : ""}`}
-            onClick={() =>
-              setForm((prev) => ({
-                ...prev,
-                entryType: "INCOME",
-                category: INCOME_CATEGORIES[0],
-                paymentMethod: "銀行入金"
-              }))
-            }
-          >
-            収入
-          </button>
-        </div>
+        {!lockEntryType ? (
+          <div className="chip-row">
+            <button
+              type="button"
+              className={`chip ${form.entryType === "EXPENSE" ? "chip-active" : ""}`}
+              onClick={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  entryType: "EXPENSE",
+                  category: EXPENSE_CATEGORIES[0],
+                  paymentMethod: "クレジット"
+                }))
+              }
+            >
+              支出
+            </button>
+            <button
+              type="button"
+              className={`chip ${form.entryType === "INCOME" ? "chip-active" : ""}`}
+              onClick={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  entryType: "INCOME",
+                  category: INCOME_CATEGORIES[0],
+                  paymentMethod: "銀行入金"
+                }))
+              }
+            >
+              収入
+            </button>
+          </div>
+        ) : null}
 
         <div className="grid-2">
           <label className="field">

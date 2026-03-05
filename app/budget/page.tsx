@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { BudgetEntryForm } from "./budget-entry-form";
 import { DailyRangeOption, getBudgetDashboard } from "@/lib/budget";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +31,16 @@ function formatYen(value: number) {
     currency: "JPY",
     maximumFractionDigits: 0
   }).format(value);
+}
+
+function toNumber(value: number | bigint | string | null | undefined): number {
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 }
 
 function formatDate(value: string) {
@@ -154,12 +163,15 @@ export default async function BudgetPage({
   const incomeRows = dashboard.monthlyIncomeByAccount.map((row) => ({ label: row.account, value: row.total }));
   const monthlyExpenseRows = dashboard.monthlyExpenseByDay.map((row) => ({
     label: row.day.slice(8, 10),
-    value: row.total
+    value: toNumber(row.total)
   }));
-  const rangeRows = dashboard.dailyRangeGraph.map((row) => ({ label: row.day.slice(5), value: row.total }));
+  const rangeRows = dashboard.dailyRangeGraph.map((row) => ({
+    label: row.day.slice(5),
+    value: toNumber(row.total)
+  }));
   const trendRows = dashboard.monthTrendRows.map((row) => ({
     label: row.monthKey,
-    value: Math.max(0, row.income - row.expense)
+    value: Math.max(0, toNumber(row.income) - toNumber(row.expense))
   }));
 
   return (
@@ -202,21 +214,42 @@ export default async function BudgetPage({
       <section className="grid-3 budget-metrics-grid">
         <article className="panel budget-metric">
           <p className="label-caption">月間収入</p>
-          <h3>{formatYen(dashboard.monthlyTotals.income)}</h3>
+          <h3>{formatYen(toNumber(dashboard.monthlyTotals.income))}</h3>
         </article>
         <article className="panel budget-metric">
           <p className="label-caption">月間支出</p>
-          <h3>{formatYen(dashboard.monthlyTotals.expense)}</h3>
+          <h3>{formatYen(toNumber(dashboard.monthlyTotals.expense))}</h3>
         </article>
         <article className="panel budget-metric">
           <p className="label-caption">月間収支</p>
-          <h3>{formatYen(dashboard.monthlyBalance)}</h3>
+          <h3>{formatYen(toNumber(dashboard.monthlyBalance))}</h3>
         </article>
       </section>
 
       <section className="budget-dashboard-grid">
-        <BarChart title="口座別入金 (三井住友 / ゆうちょ)" rows={incomeRows} emptyText="当月の収入はまだありません" />
+        <BarChart
+          title="口座別入金 (三井住友 / ゆうちょ)"
+          rows={incomeRows.map((row) => ({ ...row, value: toNumber(row.value) }))}
+          emptyText="当月の収入はまだありません"
+        />
         <BarChart title="月次収支トレンド" rows={trendRows} emptyText="トレンドデータがありません" />
+      </section>
+
+      <section className="grid-2">
+        <article className="panel">
+          <h3>支出を入力</h3>
+          <p className="status-text">日付・カテゴリ・支払い方法・店名を入力します。</p>
+          <Link className="button-primary" href="/budget/expenses">
+            支出入力へ
+          </Link>
+        </article>
+        <article className="panel">
+          <h3>収入を入力</h3>
+          <p className="status-text">三井住友/ゆうちょなどの入金を登録します。</p>
+          <Link className="button-primary" href="/budget/income">
+            収入入力へ
+          </Link>
+        </article>
       </section>
 
       <section className="panel budget-switch-row">
@@ -271,7 +304,6 @@ export default async function BudgetPage({
         </section>
       )}
 
-      <BudgetEntryForm />
     </section>
   );
 }
