@@ -288,6 +288,42 @@ main {
   line-height: 1.55;
 }
 
+.summary-usage-wrap {
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.summary-usage-table {
+  border-collapse: collapse;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.76rem;
+  color: #32405d;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.summary-usage-table th,
+.summary-usage-table td {
+  border-bottom: 1px solid rgba(17, 24, 39, 0.09);
+  padding: 0.28rem 0.46rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.summary-usage-table tr:last-child th,
+.summary-usage-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.summary-usage-table th {
+  font-weight: 600;
+  color: #5a6781;
+  min-width: 58px;
+  background: rgba(245, 248, 255, 0.9);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -391,10 +427,14 @@ main {
   width: 36px;
   height: 36px;
   border-radius: 999px;
+  padding: 0;
   background: #fff;
   color: #7b8498;
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
@@ -402,6 +442,11 @@ main {
   color: #e11d48;
   border-color: #f8a6bb;
   background: #fff2f6;
+}
+
+.heart-glyph {
+  display: block;
+  transform: translateX(-0.5px);
 }
 
 .news-card a {

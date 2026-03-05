@@ -37,7 +37,9 @@ export function FavoriteButton({ newsItemId, initialIsFavorite }: FavoriteButton
       aria-label="favorite"
       title={isFavorite ? "お気に入り解除" : "お気に入り追加"}
     >
-      {isFavorite ? "♥" : "♡"}
+      <span className="heart-glyph" aria-hidden="true">
+        {isFavorite ? "♥" : "♡"}
+      </span>
     </button>
   );
 }

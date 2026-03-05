@@ -83,16 +83,42 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
       {error ? <p className="error-text">{error}</p> : null}
       {result ? <div className="summary-box">{result}</div> : null}
       {usage ? (
-        <p className="meta-text">
-          tokens in/out/total: {usage.input_tokens ?? 0}/{usage.output_tokens ?? 0}/
-          {usage.total_tokens ?? 0}
-          {typeof costJpy === "number" ? ` | 概算 ¥${costJpy.toFixed(3)}` : ""}
-          {typeof usedFullArticle === "boolean"
-            ? usedFullArticle
-              ? " | full article"
-              : " | snippet fallback"
-            : ""}
-        </p>
+        <div className="summary-usage-wrap">
+          <table className="summary-usage-table">
+            <tbody>
+              <tr>
+                <th>Input</th>
+                <td>{usage.input_tokens ?? 0}</td>
+              </tr>
+              <tr>
+                <th>Output</th>
+                <td>{usage.output_tokens ?? 0}</td>
+              </tr>
+              <tr>
+                <th>Total</th>
+                <td>{usage.total_tokens ?? 0}</td>
+              </tr>
+              {typeof usage.input_tokens_details?.cached_tokens === "number" ? (
+                <tr>
+                  <th>Cached</th>
+                  <td>{usage.input_tokens_details.cached_tokens}</td>
+                </tr>
+              ) : null}
+              {typeof costJpy === "number" ? (
+                <tr>
+                  <th>概算</th>
+                  <td>¥{costJpy.toFixed(3)}</td>
+                </tr>
+              ) : null}
+              {typeof usedFullArticle === "boolean" ? (
+                <tr>
+                  <th>Source</th>
+                  <td>{usedFullArticle ? "full article" : "snippet fallback"}</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </div>
   );
