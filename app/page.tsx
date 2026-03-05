@@ -29,6 +29,18 @@ export default function HomePage() {
           <p>Placeholder for monthly budget tools and household summaries.</p>
           <Link href="/budget">Open Budget</Link>
         </article>
+
+        <article className="panel">
+          <h3>Tasks</h3>
+          <p>Manage todo/done tasks with effort, importance, and due date.</p>
+          <Link href="/tasks">Open Tasks</Link>
+        </article>
+
+        <article className="panel">
+          <h3>Planner</h3>
+          <p>See calendar events, fatigue total, free blocks, and today's task plan.</p>
+          <Link href="/planner">Open Planner</Link>
+        </article>
       </section>
     </section>
   );
