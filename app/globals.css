@@ -103,6 +103,8 @@ main {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.45rem;
   align-items: flex-start;
+  position: relative;
+  z-index: 3;
 }
 
 .button-primary {
@@ -357,6 +359,8 @@ main {
   gap: 0.9rem;
   padding: 1rem;
   border: 1px solid rgba(17, 24, 39, 0.08);
+  position: relative;
+  isolation: isolate;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(245, 248, 255, 0.88)),
     radial-gradient(circle at 85% 20%, rgba(59, 130, 246, 0.12), transparent 45%);
@@ -370,11 +374,19 @@ main {
 
 .result-meta-wrap {
   margin-top: -0.15rem;
+  pointer-events: none;
 }
 
 .refresh-control {
   min-width: 0;
   display: grid;
+  position: relative;
+  z-index: 4;
+}
+
+.news-actions-row {
+  position: relative;
+  z-index: 4;
 }
 
 .refresh-button {
