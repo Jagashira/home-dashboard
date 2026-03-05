@@ -1,54 +1,63 @@
 # Home Dashboard (Local-Only)
 
-MVP home dashboard built with Next.js App Router, Prisma, and SQLite.
+Local-only home dashboard built with Next.js App Router + Prisma + SQLite.
 
 ## Features
 
-- Next.js App Router pages: `/`, `/news`, `/shop`, `/budget`
-- Prisma + SQLite with DB file in `./data`
-- RSS ingestion flow for `/news` (semiconductor, tech, AI feeds by default)
-- `POST /api/news/refresh` to fetch and store latest feed items
-- `/news` keyword/date search with pagination and result limits
-- `/news` controls modal for search/settings (keyword chips + date range shortcuts)
-- `POST /api/news/summarize` for per-article AI summary via OpenAI API
-- Dedup based on `sha256(url + title)`
-- Docker Compose support for Raspberry Pi 4 (Ubuntu) and Mac
+- Pages
+  - `/news`: RSS fetch, local search, AI summarize, favorites
+  - `/budget`: expense dashboard + expense/income input
+  - `/tasks`: task CRUD (todo/done, importance/fatigue/minutes/dueDate)
+  - `/planner`: Google Calendar sync, fatigue total, free-time blocks, today's plan
+- SQLite DB under `./data` (easy migration to SSD)
+- Docker Compose support
 
 ## Tech Stack
 
 - Node.js 20+
-- Next.js 15
+- Next.js 15 (App Router)
+- TypeScript
 - Prisma ORM
 - SQLite
-- `rss-parser`
+- rss-parser
+- googleapis
 
-## Local Development (Mac or Raspberry Pi)
+## Setup (Mac / Raspberry Pi)
 
-1. Install prerequisites:
-- Node.js 20+
-- npm
-
-2. Configure environment:
+1. Create env and data directory
 
 ```bash
 cp .env.example .env
 mkdir -p data
 ```
 
-3. Install dependencies and generate Prisma client:
+2. Install deps
 
 ```bash
 npm install
 npm run prisma:generate
 ```
 
-4. Apply migration:
+3. Apply DB schema
+
+### Fresh DB (recommended)
 
 ```bash
+rm -f data/app.db
 npm run prisma:deploy
 ```
 
-5. Start dev server:
+### Existing DB (if you already have News/Budget data)
+
+Because older versions created some tables outside Prisma migrations, `prisma migrate deploy` can request baseline.
+In that case, execute the new migration SQL directly:
+
+```bash
+npx prisma db execute --file prisma/migrations/20260306000100_add_calendar_and_tasks/migration.sql --schema prisma/schema.prisma
+npm run prisma:generate
+```
+
+4. Start dev server
 
 ```bash
 npm run dev
@@ -56,95 +65,116 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## News Feed Setup
+---
 
-Update `.env`:
+## Environment Variables
+
+`.env.example` now includes:
 
 ```env
 DATABASE_URL="file:../data/app.db"
-NEWS_FEEDS="https://gigazine.net/news/rss_2.0/,https://rss.itmedia.co.jp/rss/2.0/aiplus.xml,https://www.publickey1.jp/atom.xml,https://semiengineering.com/feed/,http://feeds.arstechnica.com/arstechnica/index,https://www.marktechpost.com/feed/"
-OPENAI_API="YOUR_OPENAI_API_KEY"
+NEWS_FEEDS="..."
+OPENAI_API="..."
 OPENAI_PRICE_INPUT_PER_1M="0.4"
 OPENAI_PRICE_CACHED_INPUT_PER_1M="0.1"
 OPENAI_PRICE_OUTPUT_PER_1M="1.6"
 OPENAI_USD_TO_JPY="150"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GOOGLE_REDIRECT_URI=""
+GOOGLE_REFRESH_TOKEN=""
+GOOGLE_CALENDAR_ID="primary"
 ```
 
-Refresh news items:
+---
 
-- From UI: visit `/news` and click **Refresh News**
-- Save your own keywords and feeds from `/news` → **検索・設定を開く** → **保存して再取得**
-- Click **AIで要約** on each news card to generate a Japanese summary
-  - Shows token usage and estimated JPY cost under each summary
-- From CLI:
+## Google Calendar OAuth (refresh token)
 
-```bash
-npm run news:refresh
-```
+1. Create a Google Cloud project
+2. Enable **Google Calendar API**
+3. Create OAuth Client ID (`Web application`)
+4. Set redirect URI (example: `http://localhost:3000/api/auth/google/callback`)
+5. Get authorization code and exchange for refresh token
 
-## Docker Compose (Production, Local Network)
+Simple way with OAuth Playground:
+- Open [OAuth 2.0 Playground](https://developers.google.com/oauthplayground)
+- Gear icon: use your own OAuth credentials
+- Select scope: `https://www.googleapis.com/auth/calendar.readonly`
+- Authorize, then exchange code
+- Copy `refresh_token` into `GOOGLE_REFRESH_TOKEN`
 
-1. Ensure `.env` exists (copy from `.env.example` if needed).
-2. Start app:
+Set all Google envs, then planner sync API can read today events.
 
-```bash
-docker compose up -d --build
-```
+---
 
-3. View logs:
+## Planner Logic
 
-```bash
-docker compose logs -f app
-```
+- Calendar title parsing supports:
+  - `[WORK] 研究`
+  - `[WORK:60] 修論` (manual fatigue override)
+- Fatigue weights
+  - `WORK 40`, `MEET 55`, `OUT 35`, `HOME 25`, `SPORT 70`, `REST -30`
+- Free-time range: `08:00-24:00`
+- Task allocation rule (simple)
+  - dueDate <= today first
+  - higher importance first
+  - shorter minutes first
+  - split across blocks when needed
 
-App is exposed on port `3000` of the host.
-
-## Raspberry Pi 4 Notes
-
-- Use 64-bit Ubuntu on Raspberry Pi for best compatibility.
-- Docker image uses `node:20-bookworm-slim` (multi-arch).
-- Keep persistent DB on mounted `./data` (good target for SSD migration later).
-
-## Security Notes (Local-Only)
-
-- Do not publish ports to the internet directly.
-- Access over LAN or Tailscale only.
-- Keep `.env` out of git (already ignored).
-
-## Project Structure
-
-- `app/`: Next.js App Router pages and API routes
-- `lib/news.ts`: RSS parsing and dedup insertion logic
-- `prisma/schema.prisma`: Prisma schema
-- `prisma/migrations/`: SQL migration files
-- `data/`: SQLite database location
+---
 
 ## API
 
-### `POST /api/news/refresh`
+### Calendar
 
-Fetches RSS feeds from `NEWS_FEEDS`, stores new items, updates existing matching dedup hash.
+- `POST /api/calendar/sync`
+  - Fetch today events from Google Calendar
+  - Parse tag/fatigue
+  - Insert if same `title + startAt` not already stored
+- `GET /api/calendar/today`
+  - `{ events, fatigueTotal }`
 
-Example response:
+### Planner
 
-```json
-{
-  "ok": true,
-  "inserted": 12,
-  "totalFetched": 28,
-  "refreshedAt": "2026-03-05T01:23:45.678Z"
-}
+- `GET /api/planner/free-time`
+  - `{ freeBlocks }`
+- `GET /api/planner/today`
+  - `{ events, fatigueTotal, freeBlocks, tasksTodo, plan }`
+
+### Tasks
+
+- `GET /api/tasks?status=todo|done`
+- `POST /api/tasks`
+- `PATCH /api/tasks/:id`
+- `DELETE /api/tasks/:id`
+
+---
+
+## Quick Test Flow (required)
+
+1. Open `/tasks`
+2. Add task (e.g. title `洗濯`, minutes `30`, importance `3`, fatigue `20`)
+3. Open `/planner`
+4. Click **Google予定を同期**
+5. Confirm
+   - today events list shows
+   - fatigue total updates
+   - free blocks are shown
+   - task is allocated in plan
+
+---
+
+## Docker Compose
+
+```bash
+docker compose up -d --build
+docker compose logs -f app
 ```
 
-### `PATCH /api/news/settings`
+App is exposed on host port `3000`.
 
-Updates persistent news settings (keywords/feed URLs/limits/Japanese preference) in local SQLite.
+## Security
 
-### `POST /api/news/summarize`
-
-Summarizes one article with OpenAI (`OPENAI_API` in `.env`).
-The API tries to fetch full article body first and falls back to RSS snippet if extraction fails.
-
-## Migration Included
-
-Initial migration creates `NewsItem` table with unique `dedupHash` index.
+- Local network / Tailscale only
+- Do not expose directly to public internet
+- `.env` is gitignored
