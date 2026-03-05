@@ -33,8 +33,16 @@ function hm(value: string): string {
 export function PlannerDashboard() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [statusText, setStatusText] = useState("");
   const [data, setData] = useState<PlannerPayload | null>(null);
+  const [aiText, setAiText] = useState<string | null>(null);
+  const [aiUsage, setAiUsage] = useState<{
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  } | null>(null);
+  const [aiCostJpy, setAiCostJpy] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -72,6 +80,24 @@ export function PlannerDashboard() {
     }
   };
 
+  const generateAiPlan = async () => {
+    setAiLoading(true);
+    try {
+      const response = await fetch("/api/planner/ai-suggest", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        setStatusText(payload.error ?? "AI提案失敗");
+        return;
+      }
+
+      setAiText(String(payload.suggestion ?? ""));
+      setAiUsage(payload.usage ?? null);
+      setAiCostJpy(typeof payload.estimatedCostJpy === "number" ? payload.estimatedCostJpy : null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <section className="stack-lg">
       <section className="panel">
@@ -79,9 +105,45 @@ export function PlannerDashboard() {
           <button className="button-primary" type="button" onClick={syncCalendar} disabled={syncing}>
             {syncing ? "同期中..." : "Google予定を同期"}
           </button>
+          <button className="button-secondary" type="button" onClick={generateAiPlan} disabled={aiLoading}>
+            {aiLoading ? "提案生成中..." : "AIで今日のタスク提案"}
+          </button>
           {statusText ? <p className="status-text">{statusText}</p> : null}
         </div>
       </section>
+
+      {aiText ? (
+        <section className="panel planner-list-card">
+          <h3>AI提案</h3>
+          <pre className="summary-box">{aiText}</pre>
+          {aiUsage ? (
+            <div className="summary-usage-wrap">
+              <table className="summary-usage-table">
+                <tbody>
+                  <tr>
+                    <th>Input</th>
+                    <td>{aiUsage.input_tokens ?? 0}</td>
+                  </tr>
+                  <tr>
+                    <th>Output</th>
+                    <td>{aiUsage.output_tokens ?? 0}</td>
+                  </tr>
+                  <tr>
+                    <th>Total</th>
+                    <td>{aiUsage.total_tokens ?? 0}</td>
+                  </tr>
+                  {typeof aiCostJpy === "number" ? (
+                    <tr>
+                      <th>概算</th>
+                      <td>¥{aiCostJpy.toFixed(3)}</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="grid-2">
         <article className="panel budget-metric">
