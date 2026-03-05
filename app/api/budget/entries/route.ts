@@ -8,13 +8,21 @@ export async function POST(request: NextRequest) {
     const entryType = payload.entryType === "INCOME" ? "INCOME" : "EXPENSE";
     const date = typeof payload.date === "string" ? payload.date : "";
     const amount = Number(payload.amount);
-    const category = typeof payload.category === "string" ? payload.category : "";
-    const paymentMethod = typeof payload.paymentMethod === "string" ? payload.paymentMethod : "";
-    const storeName = typeof payload.storeName === "string" ? payload.storeName : "";
+    const category = typeof payload.category === "string" ? payload.category.trim() : "";
+    const paymentMethod = typeof payload.paymentMethod === "string" ? payload.paymentMethod.trim() : "";
+    const storeName = typeof payload.storeName === "string" ? payload.storeName.trim() : "";
+    const sourceAccount = typeof payload.sourceAccount === "string" ? payload.sourceAccount.trim() : "";
 
-    if (!date || !Number.isFinite(amount) || amount <= 0 || !category || !paymentMethod || !storeName) {
+    if (!date || !Number.isFinite(amount) || amount <= 0 || !category) {
       return NextResponse.json(
-        { ok: false, error: "date/amount/category/paymentMethod/storeName are required" },
+        { ok: false, error: "date/amount/category are required" },
+        { status: 400 }
+      );
+    }
+
+    if (entryType === "EXPENSE" && (!paymentMethod || !storeName)) {
+      return NextResponse.json(
+        { ok: false, error: "expense requires paymentMethod/storeName" },
         { status: 400 }
       );
     }
@@ -24,10 +32,10 @@ export async function POST(request: NextRequest) {
       date,
       amount,
       category,
-      paymentMethod,
-      storeName,
+      paymentMethod: paymentMethod || (entryType === "INCOME" ? "銀行振込" : "その他"),
+      storeName: storeName || (entryType === "INCOME" ? "入金" : "不明"),
       memo: typeof payload.memo === "string" ? payload.memo : "",
-      sourceAccount: typeof payload.sourceAccount === "string" ? payload.sourceAccount : ""
+      sourceAccount
     });
 
     return NextResponse.json({ ok: true, id: result.id });

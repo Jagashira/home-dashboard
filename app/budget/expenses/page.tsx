@@ -9,7 +9,7 @@ export default function BudgetExpensesPage() {
       <section className="panel budget-hero">
         <div className="budget-grid-bg" aria-hidden="true" />
         <div className="budget-hero-body stack-sm">
-          <p className="label-caption">BUDGET INPUT</p>
+          <p className="label-caption">EXPENSE INPUT</p>
           <h1 className="budget-title">支出入力</h1>
           <Link className="button-secondary" href="/budget">
             ダッシュボードへ戻る
@@ -17,7 +17,7 @@ export default function BudgetExpensesPage() {
         </div>
       </section>
 
-      <BudgetEntryForm initialEntryType="EXPENSE" lockEntryType />
+      <BudgetEntryForm mode="expense" />
     </section>
   );
 }

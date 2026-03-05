@@ -1,21 +1,48 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const EXPENSE_CATEGORIES = ["食費", "日用品", "交通", "医療", "娯楽", "通信", "光熱費", "その他"];
-const PAYMENT_METHODS = ["現金", "クレジット", "デビット", "QR", "口座振替", "その他"];
-const INCOME_CATEGORIES = ["給与", "副業", "返金", "その他"];
-const SOURCE_ACCOUNTS = ["三井住友", "ゆうちょ", "その他"];
+const EXPENSE_CATEGORIES = [
+  "食費",
+  "日用品",
+  "交通費",
+  "交際費",
+  "医療費",
+  "教育費",
+  "公共料金",
+  "趣味娯楽",
+  "ペット",
+  "育児子供",
+  "美容",
+  "衣服",
+  "保険税金",
+  "家電家具",
+  "プレゼント",
+  "イベント",
+  "修理メンテナンス",
+  "サブスクリプション",
+  "その他"
+] as const;
+
+const EXPENSE_PAYMENT_METHODS = ["クレジット", "交通系", "paypay", "starbucks card", "その他"] as const;
+const INCOME_CATEGORIES = ["給与", "賞与", "副業", "投資", "還付金", "臨時収入", "その他"] as const;
+const INCOME_METHODS = ["銀行振込", "現金", "その他"] as const;
+const SOURCE_ACCOUNTS = ["三井住友", "ゆうちょ", "その他"] as const;
+
+type BudgetFormMode = "expense" | "income";
+
+type BudgetEntryFormProps = {
+  mode: BudgetFormMode;
+};
 
 type FormState = {
-  entryType: "EXPENSE" | "INCOME";
   date: string;
   amount: string;
   category: string;
   paymentMethod: string;
-  sourceAccount: string;
   storeName: string;
+  sourceAccount: string;
   memo: string;
 };
 
@@ -23,32 +50,23 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function BudgetEntryForm({
-  initialEntryType = "EXPENSE",
-  lockEntryType = false
-}: {
-  initialEntryType?: "EXPENSE" | "INCOME";
-  lockEntryType?: boolean;
-}) {
+export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [okText, setOkText] = useState("");
+
+  const isExpense = mode === "expense";
+
   const [form, setForm] = useState<FormState>({
-    entryType: initialEntryType,
     date: todayYmd(),
     amount: "",
-    category: initialEntryType === "INCOME" ? "給与" : "食費",
-    paymentMethod: initialEntryType === "INCOME" ? "銀行入金" : "クレジット",
-    sourceAccount: "三井住友",
+    category: isExpense ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0],
+    paymentMethod: isExpense ? EXPENSE_PAYMENT_METHODS[0] : INCOME_METHODS[0],
     storeName: "",
+    sourceAccount: SOURCE_ACCOUNTS[0],
     memo: ""
   });
-
-  const categoryOptions = useMemo(
-    () => (form.entryType === "INCOME" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES),
-    [form.entryType]
-  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -61,13 +79,21 @@ export function BudgetEntryForm({
     setOkText("");
 
     try {
+      const payload = {
+        entryType: isExpense ? "EXPENSE" : "INCOME",
+        date: form.date,
+        amount: Number(form.amount),
+        category: form.category,
+        paymentMethod: form.paymentMethod,
+        storeName: isExpense ? form.storeName : form.storeName || "入金",
+        sourceAccount: form.sourceAccount,
+        memo: form.memo
+      };
+
       const response = await fetch("/api/budget/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          amount: Number(form.amount)
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -84,7 +110,6 @@ export function BudgetEntryForm({
         storeName: "",
         memo: ""
       }));
-
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "入力保存に失敗しました");
@@ -95,41 +120,8 @@ export function BudgetEntryForm({
 
   return (
     <section className="panel budget-form-card">
-      <h2>収支入力</h2>
+      <h2>{isExpense ? "支出入力" : "収入入力"}</h2>
       <form className="stack-md" onSubmit={onSubmit}>
-        {!lockEntryType ? (
-          <div className="chip-row">
-            <button
-              type="button"
-              className={`chip ${form.entryType === "EXPENSE" ? "chip-active" : ""}`}
-              onClick={() =>
-                setForm((prev) => ({
-                  ...prev,
-                  entryType: "EXPENSE",
-                  category: EXPENSE_CATEGORIES[0],
-                  paymentMethod: "クレジット"
-                }))
-              }
-            >
-              支出
-            </button>
-            <button
-              type="button"
-              className={`chip ${form.entryType === "INCOME" ? "chip-active" : ""}`}
-              onClick={() =>
-                setForm((prev) => ({
-                  ...prev,
-                  entryType: "INCOME",
-                  category: INCOME_CATEGORIES[0],
-                  paymentMethod: "銀行入金"
-                }))
-              }
-            >
-              収入
-            </button>
-          </div>
-        ) : null}
-
         <div className="grid-2">
           <label className="field">
             <span>日付</span>
@@ -154,95 +146,69 @@ export function BudgetEntryForm({
           </label>
         </div>
 
+        {isExpense ? (
+          <label className="field">
+            <span>店名</span>
+            <input
+              required
+              value={form.storeName}
+              onChange={(event) => update("storeName", event.target.value)}
+              placeholder="スーパー、コンビニ、EC など"
+            />
+          </label>
+        ) : (
+          <label className="field">
+            <span>入金元 (任意)</span>
+            <input
+              value={form.storeName}
+              onChange={(event) => update("storeName", event.target.value)}
+              placeholder="会社名、振込元など"
+            />
+          </label>
+        )}
+
         <div className="grid-2">
           <label className="field">
             <span>カテゴリ</span>
-            <input
-              list="budget-categories"
-              required
-              value={form.category}
-              onChange={(event) => update("category", event.target.value)}
-            />
-            <datalist id="budget-categories">
-              {categoryOptions.map((item) => (
-                <option value={item} key={item} />
+            <select value={form.category} onChange={(event) => update("category", event.target.value)}>
+              {(isExpense ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map((item) => (
+                <option value={item} key={item}>
+                  {item}
+                </option>
               ))}
-            </datalist>
+            </select>
           </label>
 
           <label className="field">
-            <span>支払い方法</span>
-            <input
-              list="budget-payment-methods"
-              required
+            <span>{isExpense ? "支払い方法" : "入金方法"}</span>
+            <select
               value={form.paymentMethod}
               onChange={(event) => update("paymentMethod", event.target.value)}
-            />
-            <datalist id="budget-payment-methods">
-              {(form.entryType === "INCOME" ? ["銀行入金", "振込", "現金", "その他"] : PAYMENT_METHODS).map(
-                (item) => (
-                  <option value={item} key={item} />
-                )
-              )}
-            </datalist>
+            >
+              {(isExpense ? EXPENSE_PAYMENT_METHODS : INCOME_METHODS).map((item) => (
+                <option value={item} key={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
-        <div className="grid-2">
-          {form.entryType === "INCOME" ? (
-            <label className="field">
-              <span>入金元口座</span>
-              <input
-                list="budget-source-accounts"
-                required
-                value={form.sourceAccount}
-                onChange={(event) => update("sourceAccount", event.target.value)}
-              />
-              <datalist id="budget-source-accounts">
-                {SOURCE_ACCOUNTS.map((item) => (
-                  <option value={item} key={item} />
-                ))}
-              </datalist>
-            </label>
-          ) : (
-            <label className="field">
-              <span>店名</span>
-              <input
-                required
-                value={form.storeName}
-                onChange={(event) => update("storeName", event.target.value)}
-                placeholder="スーパー、コンビニ、EC など"
-              />
-            </label>
-          )}
-
-          {form.entryType === "INCOME" ? (
-            <label className="field">
-              <span>入金名目</span>
-              <input
-                required
-                value={form.storeName}
-                onChange={(event) => update("storeName", event.target.value)}
-                placeholder="給与、振込名など"
-              />
-            </label>
-          ) : (
-            <label className="field">
-              <span>支払口座</span>
-              <input
-                list="budget-source-accounts"
-                value={form.sourceAccount}
-                onChange={(event) => update("sourceAccount", event.target.value)}
-                placeholder="三井住友、ゆうちょ など"
-              />
-              <datalist id="budget-source-accounts">
-                {SOURCE_ACCOUNTS.map((item) => (
-                  <option value={item} key={item} />
-                ))}
-              </datalist>
-            </label>
-          )}
-        </div>
+        {!isExpense ? (
+          <label className="field">
+            <span>入金先口座</span>
+            <select
+              value={form.sourceAccount}
+              onChange={(event) => update("sourceAccount", event.target.value)}
+            >
+              {SOURCE_ACCOUNTS.map((item) => (
+                <option value={item} key={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
 
         <label className="field">
           <span>メモ (任意)</span>

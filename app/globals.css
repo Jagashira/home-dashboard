@@ -156,7 +156,8 @@ main {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   width: 100%;
   border: 1px solid var(--card-border);
   border-radius: 10px;
