@@ -19,3 +19,33 @@ model NewsItem {
 
   @@index([createdAt])
 }
+
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  title     String
+  startAt   DateTime
+  endAt     DateTime
+  tag       String
+  fatigue   Int
+  source    String
+  createdAt DateTime @default(now())
+
+  @@index([startAt])
+  @@index([title, startAt])
+}
+
+model Task {
+  id         String   @id @default(cuid())
+  title      String
+  note       String?
+  minutes    Int
+  importance Int
+  fatigue    Int
+  dueDate    DateTime?
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status])
+  @@index([dueDate])
+}
