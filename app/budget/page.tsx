@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExpenseScopeOption, getExpenseDashboard } from "@/lib/budget";
+import { ExpenseListManager } from "./expense-list-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,6 @@ function formatYen(value: number) {
     currency: "JPY",
     maximumFractionDigits: 0
   }).format(value);
-}
-
-function formatDate(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(date);
 }
 
 function queryHref(base: {
@@ -75,43 +70,6 @@ function BarChart({ title, rows, emptyText }: { title: string; rows: ChartRow[];
               </div>
             );
           })}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RecentExpenseList({
-  items
-}: {
-  items: Array<{
-    id: string;
-    date: string;
-    amount: number;
-    category: string;
-    paymentMethod: string;
-    storeName: string;
-  }>;
-}) {
-  return (
-    <section className="panel budget-list-card">
-      <h3>支出リスト</h3>
-      {items.length === 0 ? (
-        <p className="status-text">この期間の支出はありません</p>
-      ) : (
-        <div className="budget-list">
-          {items.map((item) => (
-            <article className="budget-list-item" key={item.id}>
-              <div>
-                <p className="budget-list-date">{formatDate(item.date)}</p>
-                <p className="budget-list-name">{item.storeName}</p>
-                <p className="budget-list-meta">
-                  {item.category} / {item.paymentMethod}
-                </p>
-              </div>
-              <strong>{formatYen(item.amount)}</strong>
-            </article>
-          ))}
         </div>
       )}
     </section>
@@ -258,7 +216,7 @@ export default async function BudgetPage({
 
       <section className="budget-dashboard-grid">
         <BarChart title={graphTitle} rows={activeRows} emptyText="表示データがありません" />
-        <RecentExpenseList items={dashboard.range.items} />
+        <ExpenseListManager items={dashboard.range.items} />
       </section>
     </section>
   );

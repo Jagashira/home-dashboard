@@ -583,6 +583,22 @@ main {
   font-weight: 700;
 }
 
+.budget-list-actions {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.budget-delete-button {
+  border-color: #f3c9c9;
+  color: #b42318;
+}
+
+.budget-edit-modal {
+  width: min(640px, 95vw);
+}
+
 @media (max-width: 640px) {
   .budget-dashboard-grid {
     grid-template-columns: 1fr;

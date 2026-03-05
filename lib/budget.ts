@@ -124,6 +124,44 @@ export async function createBudgetEntry(input: BudgetEntryInput) {
   return { id };
 }
 
+export async function updateExpenseEntry(
+  id: string,
+  input: {
+    date: string;
+    amount: number;
+    category: string;
+    paymentMethod: string;
+    storeName: string;
+    memo?: string;
+  }
+) {
+  await ensureBudgetSchema();
+
+  const updated = await prisma.$executeRaw`
+    UPDATE "BudgetEntry"
+    SET
+      date = ${input.date},
+      amount = ${clampAmount(input.amount)},
+      category = ${input.category},
+      paymentMethod = ${input.paymentMethod},
+      storeName = ${input.storeName},
+      memo = ${input.memo ?? null}
+    WHERE id = ${id}
+      AND entryType = 'EXPENSE'
+  `;
+
+  return toSafeNumber(updated);
+}
+
+export async function deleteBudgetEntry(id: string) {
+  await ensureBudgetSchema();
+  const deleted = await prisma.$executeRaw`
+    DELETE FROM "BudgetEntry"
+    WHERE id = ${id}
+  `;
+  return toSafeNumber(deleted);
+}
+
 export async function getBudgetDashboard(input: {
   month: string;
   date: string;
