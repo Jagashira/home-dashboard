@@ -5,40 +5,52 @@ import { useRouter } from "next/navigation";
 
 export function RefreshNewsButton() {
   const router = useRouter();
-  const [status, setStatus] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const refresh = async () => {
-    setStatus("Refreshing feeds...");
+    window.dispatchEvent(
+      new CustomEvent("news-refresh-status", { detail: "Refreshing feeds..." })
+    );
 
     try {
       const response = await fetch("/api/news/refresh", { method: "POST" });
       const payload = await response.json();
 
       if (!response.ok || !payload.ok) {
-        setStatus(`Refresh failed: ${payload.error ?? "unknown error"}`);
+        window.dispatchEvent(
+          new CustomEvent("news-refresh-status", {
+            detail: `Refresh failed: ${payload.error ?? "unknown error"}`
+          })
+        );
         return;
       }
 
-      setStatus(
-        `Fetched ${payload.totalFetched}, keyword-match ${payload.matchedByKeyword}, inserted ${payload.inserted}.`
+      window.dispatchEvent(
+        new CustomEvent("news-refresh-status", {
+          detail:
+            `Fetched ${payload.totalFetched}, keyword-match ${payload.matchedByKeyword}, inserted ${payload.inserted}` +
+            (typeof payload.excludedByPaywall === "number"
+              ? `, paywall-excluded ${payload.excludedByPaywall}`
+              : "")
+        })
       );
       startTransition(() => {
         router.refresh();
       });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Refresh failed.");
+      window.dispatchEvent(
+        new CustomEvent("news-refresh-status", {
+          detail: error instanceof Error ? error.message : "Refresh failed."
+        })
+      );
     }
   };
 
   return (
-    <div className="stack-sm refresh-control">
+    <div className="refresh-control">
       <button className="button-primary refresh-button" type="button" onClick={refresh} disabled={isPending}>
         {isPending ? "Refreshing..." : "Refresh News"}
       </button>
-      <p className={status ? "status-text refresh-status" : "status-text refresh-status is-empty"}>
-        {status ?? "status placeholder"}
-      </p>
     </div>
   );
 }

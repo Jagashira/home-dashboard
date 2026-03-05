@@ -25,7 +25,10 @@ export type NewsPreferences = {
   maxItemsPerFeed: number;
   defaultPageSize: number;
   preferJapanese: boolean;
+  includePaywalled: boolean;
 };
+
+export type PaywallMode = "exclude" | "include" | "only";
 
 export type SearchNewsInput = {
   query?: string;
@@ -34,6 +37,7 @@ export type SearchNewsInput = {
   page?: number;
   pageSize?: number;
   scanLimit?: number;
+  paywallMode?: PaywallMode;
 };
 
 type ParsedItem = {
@@ -51,6 +55,7 @@ type NewsPreferencesRow = {
   maxItemsPerFeed: number;
   defaultPageSize: number;
   preferJapanese: number;
+  includePaywalled: number;
 };
 
 const parser = new Parser();
@@ -135,7 +140,8 @@ function toPreferences(row: NewsPreferencesRow): NewsPreferences {
     feedUrls: normalizeFeedUrls(row.feedUrls),
     maxItemsPerFeed: clamp(row.maxItemsPerFeed, 20, 300),
     defaultPageSize: clamp(row.defaultPageSize, MIN_PAGE_SIZE, MAX_PAGE_SIZE),
-    preferJapanese: row.preferJapanese === 1
+    preferJapanese: row.preferJapanese === 1,
+    includePaywalled: row.includePaywalled === 1
   };
 }
 
@@ -175,9 +181,18 @@ async function ensureNewsSchema() {
         "maxItemsPerFeed" INTEGER NOT NULL DEFAULT 120,
         "defaultPageSize" INTEGER NOT NULL DEFAULT 20,
         "preferJapanese" INTEGER NOT NULL DEFAULT 1,
+        "includePaywalled" INTEGER NOT NULL DEFAULT 0,
         "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    try {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "NewsPreferences" ADD COLUMN "includePaywalled" INTEGER NOT NULL DEFAULT 0;
+      `);
+    } catch {
+      // Ignore if column already exists.
+    }
   })();
 
   return newsSchemaReady;
@@ -187,7 +202,7 @@ export async function getNewsPreferences(): Promise<NewsPreferences> {
   await ensureNewsSchema();
 
   const rows = await prisma.$queryRaw<NewsPreferencesRow[]>`
-    SELECT keywords, feedUrls, maxItemsPerFeed, defaultPageSize, preferJapanese
+    SELECT keywords, feedUrls, maxItemsPerFeed, defaultPageSize, preferJapanese, includePaywalled
     FROM "NewsPreferences"
     WHERE id = 1
     LIMIT 1
@@ -202,9 +217,9 @@ export async function getNewsPreferences(): Promise<NewsPreferences> {
 
   await prisma.$executeRaw`
     INSERT INTO "NewsPreferences" (
-      id, keywords, feedUrls, maxItemsPerFeed, defaultPageSize, preferJapanese
+      id, keywords, feedUrls, maxItemsPerFeed, defaultPageSize, preferJapanese, includePaywalled
     ) VALUES (
-      1, ${keywords}, ${feedUrls}, ${DEFAULT_MAX_ITEMS_PER_FEED}, ${DEFAULT_PAGE_SIZE}, 1
+      1, ${keywords}, ${feedUrls}, ${DEFAULT_MAX_ITEMS_PER_FEED}, ${DEFAULT_PAGE_SIZE}, 1, 0
     )
   `;
 
@@ -213,7 +228,8 @@ export async function getNewsPreferences(): Promise<NewsPreferences> {
     feedUrls: normalizeFeedUrls(undefined),
     maxItemsPerFeed: DEFAULT_MAX_ITEMS_PER_FEED,
     defaultPageSize: DEFAULT_PAGE_SIZE,
-    preferJapanese: true
+    preferJapanese: true,
+    includePaywalled: false
   };
 }
 
@@ -223,6 +239,7 @@ export async function updateNewsPreferences(input: {
   maxItemsPerFeed?: number;
   defaultPageSize?: number;
   preferJapanese?: boolean;
+  includePaywalled?: boolean;
 }) {
   const current = await getNewsPreferences();
 
@@ -239,10 +256,11 @@ export async function updateNewsPreferences(input: {
     MAX_PAGE_SIZE
   );
   const preferJapanese = input.preferJapanese ?? current.preferJapanese;
+  const includePaywalled = input.includePaywalled ?? current.includePaywalled;
 
   await prisma.$executeRaw`
     INSERT INTO "NewsPreferences" (
-      id, keywords, feedUrls, maxItemsPerFeed, defaultPageSize, preferJapanese, updatedAt
+      id, keywords, feedUrls, maxItemsPerFeed, defaultPageSize, preferJapanese, includePaywalled, updatedAt
     ) VALUES (
       1,
       ${keywords},
@@ -250,6 +268,7 @@ export async function updateNewsPreferences(input: {
       ${maxItemsPerFeed},
       ${defaultPageSize},
       ${preferJapanese ? 1 : 0},
+      ${includePaywalled ? 1 : 0},
       CURRENT_TIMESTAMP
     )
     ON CONFLICT(id) DO UPDATE SET
@@ -258,6 +277,7 @@ export async function updateNewsPreferences(input: {
       maxItemsPerFeed = excluded.maxItemsPerFeed,
       defaultPageSize = excluded.defaultPageSize,
       preferJapanese = excluded.preferJapanese,
+      includePaywalled = excluded.includePaywalled,
       updatedAt = CURRENT_TIMESTAMP
   `;
 
@@ -271,6 +291,36 @@ function matchesAnyKeyword(text: string, keywords: string[]): boolean {
 
   const lower = text.toLowerCase();
   return keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
+}
+
+const PAYWALL_KEYWORDS = [
+  "会員限定",
+  "有料会員",
+  "購読者限定",
+  "続きを読むには",
+  "登録が必要",
+  "subscribe to continue",
+  "subscription required",
+  "members only",
+  "sign in to continue",
+  "premium content"
+];
+
+const PAYWALL_DOMAINS = [
+  "nikkei.com",
+  "wsj.com",
+  "ft.com",
+  "bloomberg.com",
+  "theinformation.com"
+];
+
+function isLikelyPaywalled(item: { title: string; summary: string | null; url: string }): boolean {
+  const target = `${item.title}\n${item.summary ?? ""}`.toLowerCase();
+  if (PAYWALL_KEYWORDS.some((keyword) => target.includes(keyword.toLowerCase()))) {
+    return true;
+  }
+
+  return PAYWALL_DOMAINS.some((domain) => item.url.toLowerCase().includes(domain));
 }
 
 async function parseFeed(feedUrl: string): Promise<ParsedItem[]> {
@@ -301,6 +351,7 @@ export async function refreshNewsFromFeeds(): Promise<{
   inserted: number;
   totalFetched: number;
   matchedByKeyword: number;
+  excludedByPaywall: number;
 }> {
   const preferences = await getNewsPreferences();
   const feedUrls = preferences.feedUrls;
@@ -319,8 +370,13 @@ export async function refreshNewsFromFeeds(): Promise<{
     return matchesAnyKeyword(target, preferences.keywords);
   });
 
+  const paywallFilteredItems = preferences.includePaywalled
+    ? filteredItems
+    : filteredItems.filter((item) => !isLikelyPaywalled(item));
+  const excludedByPaywall = filteredItems.length - paywallFilteredItems.length;
+
   const uniqueItems = Array.from(
-    new Map(filteredItems.map((item) => [item.dedupHash, item])).values()
+    new Map(paywallFilteredItems.map((item) => [item.dedupHash, item])).values()
   );
   const existingHashes = new Set<string>();
   const chunks = chunkArray(
@@ -353,7 +409,8 @@ export async function refreshNewsFromFeeds(): Promise<{
   return {
     inserted: uniqueItems.length - existingHashes.size,
     totalFetched: limitedItems.length,
-    matchedByKeyword: filteredItems.length
+    matchedByKeyword: filteredItems.length,
+    excludedByPaywall
   };
 }
 
@@ -364,6 +421,7 @@ export async function searchNews(input: SearchNewsInput) {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = clamp(input.pageSize ?? preferences.defaultPageSize, MIN_PAGE_SIZE, MAX_PAGE_SIZE);
   const scanLimit = clamp(input.scanLimit ?? 500, MIN_SCAN_LIMIT, MAX_SCAN_LIMIT);
+  const paywallMode: PaywallMode = input.paywallMode ?? "exclude";
 
   const fallbackQuery = preferences.keywords.join(" ");
   const appliedQuery = input.query?.trim() ? input.query.trim() : fallbackQuery;
@@ -393,6 +451,12 @@ export async function searchNews(input: SearchNewsInput) {
     });
   }
 
+  if (paywallMode === "exclude") {
+    filtered = filtered.filter((item) => !isLikelyPaywalled(item));
+  } else if (paywallMode === "only") {
+    filtered = filtered.filter((item) => isLikelyPaywalled(item));
+  }
+
   if (preferences.preferJapanese) {
     filtered = [...filtered].sort((a, b) => {
       const aJa = containsJapanese(`${a.title}\n${a.summary ?? ""}`) ? 1 : 0;
@@ -417,6 +481,7 @@ export async function searchNews(input: SearchNewsInput) {
     totalPages,
     appliedQuery,
     preferences,
-    scanLimit
+    scanLimit,
+    paywallMode
   };
 }

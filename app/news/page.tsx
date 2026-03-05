@@ -4,6 +4,7 @@ import { RefreshNewsButton } from "./refresh-button";
 import { NewsControlsModal } from "./news-controls-modal";
 import { SummaryButton } from "./summary-button";
 import { SourceBadge } from "./source-badge";
+import { NewsResultMeta } from "./news-result-meta";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ function buildPageHref(
     to: string;
     pageSize: number;
     scanLimit: number;
+    pw: string;
   },
   page: number
 ) {
@@ -69,6 +71,7 @@ function buildPageHref(
   if (base.to) params.set("to", base.to);
   params.set("pageSize", String(base.pageSize));
   params.set("scanLimit", String(base.scanLimit));
+  if (base.pw) params.set("pw", base.pw);
   params.set("page", String(page));
   return `/news?${params.toString()}`;
 }
@@ -87,6 +90,9 @@ export default async function NewsPage({
     const page = parsePositiveInt(getString(resolved.page), 1);
     const pageSize = parsePositiveInt(getString(resolved.pageSize), 20);
     const scanLimit = parsePositiveInt(getString(resolved.scanLimit), 500);
+    const paywallModeRaw = getString(resolved.pw);
+    const paywallMode =
+      paywallModeRaw === "include" || paywallModeRaw === "only" ? paywallModeRaw : "exclude";
 
     const result = await searchNews({
       query: q,
@@ -94,7 +100,8 @@ export default async function NewsPage({
       to: parseDateEnd(to),
       page,
       pageSize,
-      scanLimit
+      scanLimit,
+      paywallMode
     });
 
     const pagingBase = {
@@ -102,7 +109,8 @@ export default async function NewsPage({
       from,
       to,
       pageSize: result.pageSize,
-      scanLimit: result.scanLimit
+      scanLimit: result.scanLimit,
+      pw: result.paywallMode
     };
 
     return (
@@ -125,11 +133,16 @@ export default async function NewsPage({
               initialMaxItemsPerFeed={result.preferences.maxItemsPerFeed}
               initialDefaultPageSize={result.preferences.defaultPageSize}
               initialPreferJapanese={result.preferences.preferJapanese}
+              initialIncludePaywalled={result.preferences.includePaywalled}
+              initialPaywallMode={result.paywallMode}
             />
           </div>
-          <p className="status-text search-result-meta">
-            {result.total} items / {result.page} / {result.totalPages}
-          </p>
+          <NewsResultMeta
+            total={result.total}
+            page={result.page}
+            totalPages={result.totalPages}
+            paywallMode={result.paywallMode}
+          />
         </section>
 
         {result.items.length === 0 ? (

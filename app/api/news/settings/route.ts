@@ -25,7 +25,9 @@ export async function PATCH(request: NextRequest) {
       defaultPageSize:
         typeof payload.defaultPageSize === "number" ? payload.defaultPageSize : undefined,
       preferJapanese:
-        typeof payload.preferJapanese === "boolean" ? payload.preferJapanese : undefined
+        typeof payload.preferJapanese === "boolean" ? payload.preferJapanese : undefined,
+      includePaywalled:
+        typeof payload.includePaywalled === "boolean" ? payload.includePaywalled : undefined
     });
 
     return NextResponse.json({ ok: true, preferences });

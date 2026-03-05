@@ -15,6 +15,8 @@ type NewsControlsModalProps = {
   initialMaxItemsPerFeed: number;
   initialDefaultPageSize: number;
   initialPreferJapanese: boolean;
+  initialIncludePaywalled: boolean;
+  initialPaywallMode: "exclude" | "include" | "only";
 };
 
 function splitKeywords(value: string): string[] {
@@ -47,6 +49,9 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
   const [to, setTo] = useState(props.initialTo);
   const [pageSize, setPageSize] = useState(props.initialPageSize);
   const [scanLimit, setScanLimit] = useState(props.initialScanLimit);
+  const [paywallMode, setPaywallMode] = useState<"exclude" | "include" | "only">(
+    props.initialPaywallMode
+  );
 
   const [settingKeywords, setSettingKeywords] = useState(props.initialKeywords.join(", "));
   const [settingFeedUrls, setSettingFeedUrls] = useState(props.initialFeedUrls.join("\n"));
@@ -58,6 +63,9 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
   );
   const [settingPreferJapanese, setSettingPreferJapanese] = useState(
     props.initialPreferJapanese
+  );
+  const [settingIncludePaywalled, setSettingIncludePaywalled] = useState(
+    props.initialIncludePaywalled
   );
 
   useEffect(() => {
@@ -99,6 +107,7 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
     if (to) params.set("to", to);
     params.set("pageSize", String(pageSize));
     params.set("scanLimit", String(scanLimit));
+    params.set("pw", paywallMode);
     params.set("page", "1");
 
     setFilterStatus("適用中...");
@@ -128,7 +137,8 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
         feedUrls: settingFeedUrls,
         maxItemsPerFeed: settingMaxItemsPerFeed,
         defaultPageSize: settingDefaultPageSize,
-        preferJapanese: settingPreferJapanese
+        preferJapanese: settingPreferJapanese,
+        includePaywalled: settingIncludePaywalled
       })
     });
 
@@ -264,6 +274,30 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
             </label>
           </div>
 
+          <div className="actions-row">
+            <button
+              type="button"
+              className={paywallMode === "exclude" ? "chip chip-active" : "chip"}
+              onClick={() => setPaywallMode("exclude")}
+            >
+              鍵付き除外
+            </button>
+            <button
+              type="button"
+              className={paywallMode === "include" ? "chip chip-active" : "chip"}
+              onClick={() => setPaywallMode("include")}
+            >
+              全件
+            </button>
+            <button
+              type="button"
+              className={paywallMode === "only" ? "chip chip-active" : "chip"}
+              onClick={() => setPaywallMode("only")}
+            >
+              鍵付きのみ
+            </button>
+          </div>
+
           <div className="grid-2">
             <label className="field">
               <span>Page size</span>
@@ -351,6 +385,15 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
               onChange={(event) => setSettingPreferJapanese(event.target.checked)}
             />
             <span>日本語記事を優先表示</span>
+          </label>
+
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={settingIncludePaywalled}
+              onChange={(event) => setSettingIncludePaywalled(event.target.checked)}
+            />
+            <span>鍵付き記事も再取得に含める</span>
           </label>
 
           <div className="actions-row">
