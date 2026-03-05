@@ -182,7 +182,7 @@ export function NewsControlsModal(props: NewsControlsModalProps) {
         }
       }}
     >
-      <div className="modal-card stack-lg">
+      <div className="modal-card stack-lg news-controls-modal">
         <div className="modal-header">
           <h3>検索 / 設定</h3>
           <button className="button-secondary" type="button" onClick={() => setOpen(false)}>

@@ -123,7 +123,7 @@ export default async function NewsPage({
         <section className="panel search-head-card">
           <div className="head-actions">
             <RefreshNewsButton />
-            <div className="actions-row">
+            <div className="actions-row news-actions-row">
               <NewsControlsModal
                 initialQuery={result.appliedQuery}
                 initialFrom={from}
