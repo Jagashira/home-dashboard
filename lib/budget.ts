@@ -53,6 +53,16 @@ function clampAmount(value: number): number {
   return Math.max(0, Math.round(value));
 }
 
+function toSafeNumber(value: number | bigint | string | null | undefined): number {
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
 async function ensureBudgetSchema() {
   if (budgetSchemaReady) {
     return budgetSchemaReady;
@@ -204,18 +214,35 @@ export async function getBudgetDashboard(input: {
   `;
 
   const monthlyTotals = monthlyTotalsRows[0] ?? { income: 0, expense: 0 };
+  const normalizedMonthlyTotals = {
+    income: toSafeNumber(monthlyTotals.income),
+    expense: toSafeNumber(monthlyTotals.expense)
+  };
 
   return {
     selectedDate,
     selectedMonth,
     dailyRange: input.dailyRange,
-    monthlyTotals,
-    monthlyBalance: monthlyTotals.income - monthlyTotals.expense,
-    monthlyIncomeByAccount,
-    monthlyExpenseByDay,
+    monthlyTotals: normalizedMonthlyTotals,
+    monthlyBalance: normalizedMonthlyTotals.income - normalizedMonthlyTotals.expense,
+    monthlyIncomeByAccount: monthlyIncomeByAccount.map((row) => ({
+      ...row,
+      total: toSafeNumber(row.total)
+    })),
+    monthlyExpenseByDay: monthlyExpenseByDay.map((row) => ({
+      ...row,
+      total: toSafeNumber(row.total)
+    })),
     monthlyItems,
     dailyItems,
-    dailyRangeGraph,
-    monthTrendRows
+    dailyRangeGraph: dailyRangeGraph.map((row) => ({
+      ...row,
+      total: toSafeNumber(row.total)
+    })),
+    monthTrendRows: monthTrendRows.map((row) => ({
+      ...row,
+      income: toSafeNumber(row.income),
+      expense: toSafeNumber(row.expense)
+    }))
   };
 }
