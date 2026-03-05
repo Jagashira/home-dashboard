@@ -599,6 +599,43 @@ main {
   width: min(640px, 95vw);
 }
 
+.store-suggestion-list {
+  margin-top: 0.35rem;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 10px;
+  background: #fff;
+  max-height: 220px;
+  overflow: auto;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.store-suggestion-item {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  background: transparent;
+  padding: 0.52rem 0.65rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  color: #18233c;
+}
+
+.store-suggestion-item:last-child {
+  border-bottom: 0;
+}
+
+.store-suggestion-item:hover {
+  background: #f4f7ff;
+}
+
+.store-suggestion-item small {
+  color: #64748b;
+}
+
 @media (max-width: 640px) {
   .budget-dashboard-grid {
     grid-template-columns: 1fr;

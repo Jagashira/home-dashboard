@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const EXPENSE_CATEGORIES = [
@@ -71,6 +71,8 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
   const [error, setError] = useState("");
   const [okText, setOkText] = useState("");
   const [storeSuggestions, setStoreSuggestions] = useState<Array<{ name: string; usedCount: number }>>([]);
+  const [showStoreSuggestions, setShowStoreSuggestions] = useState(false);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isExpense = mode === "expense";
 
@@ -120,6 +122,14 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
       clearTimeout(timer);
     };
   }, [form.storeName, isExpense]);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+      }
+    };
+  }, []);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,19 +209,34 @@ export function BudgetEntryForm({ mode }: BudgetEntryFormProps) {
           <label className="field">
             <span>店名</span>
             <input
-              list="expense-store-suggestions"
               required
               value={form.storeName}
               onChange={(event) => update("storeName", event.target.value)}
+              onFocus={() => setShowStoreSuggestions(true)}
+              onBlur={() => {
+                blurTimerRef.current = setTimeout(() => setShowStoreSuggestions(false), 120);
+              }}
               placeholder="スーパー、コンビニ、EC など"
             />
-            <datalist id="expense-store-suggestions">
-              {storeSuggestions.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.name} ({item.usedCount})
-                </option>
-              ))}
-            </datalist>
+            {showStoreSuggestions && storeSuggestions.length > 0 ? (
+              <div className="store-suggestion-list" role="listbox" aria-label="店名候補">
+                {storeSuggestions.map((item) => (
+                  <button
+                    key={item.name}
+                    type="button"
+                    className="store-suggestion-item"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      update("storeName", item.name);
+                      setShowStoreSuggestions(false);
+                    }}
+                  >
+                    <span>{item.name}</span>
+                    <small>{item.usedCount}回</small>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </label>
         ) : (
           <label className="field">

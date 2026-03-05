@@ -70,6 +70,16 @@ function toSafeNumber(value: number | bigint | string | null | undefined): numbe
   return 0;
 }
 
+function toHiragana(value: string) {
+  return value.replace(/[\u30a1-\u30f6]/g, (char) =>
+    String.fromCharCode(char.charCodeAt(0) - 0x60)
+  );
+}
+
+function normalizeStoreSearch(value: string) {
+  return toHiragana(value.normalize("NFKC")).toLowerCase().replace(/\s+/g, "");
+}
+
 async function ensureBudgetSchema() {
   if (budgetSchemaReady) {
     return budgetSchemaReady;
@@ -170,7 +180,7 @@ export async function getExpenseStoreSuggestions(query: string, limit = 8) {
     return [] as Array<{ name: string; usedCount: number }>;
   }
 
-  const like = `${q}%`;
+  const normalizedQuery = normalizeStoreSearch(q);
   const rows = await prisma.$queryRaw<Array<{ name: string; usedCount: number | bigint }>>`
     SELECT
       storeName as name,
@@ -178,16 +188,23 @@ export async function getExpenseStoreSuggestions(query: string, limit = 8) {
     FROM "BudgetEntry"
     WHERE entryType = 'EXPENSE'
       AND storeName != ''
-      AND storeName LIKE ${like}
     GROUP BY storeName
     ORDER BY usedCount DESC, MAX(date) DESC
-    LIMIT ${Math.max(1, Math.min(20, limit))}
+    LIMIT 500
   `;
 
-  return rows.map((row) => ({
-    name: row.name,
-    usedCount: toSafeNumber(row.usedCount)
-  }));
+  return rows
+    .map((row) => ({
+      name: row.name,
+      usedCount: toSafeNumber(row.usedCount),
+      normalized: normalizeStoreSearch(row.name)
+    }))
+    .filter((row) => row.normalized.startsWith(normalizedQuery) || row.normalized.includes(normalizedQuery))
+    .slice(0, Math.max(1, Math.min(20, limit)))
+    .map((row) => ({
+      name: row.name,
+      usedCount: row.usedCount
+    }));
 }
 
 export async function getBudgetDashboard(input: {
