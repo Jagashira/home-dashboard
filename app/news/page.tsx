@@ -5,6 +5,7 @@ import { NewsControlsModal } from "./news-controls-modal";
 import { SummaryButton } from "./summary-button";
 import { SourceBadge } from "./source-badge";
 import { NewsResultMeta } from "./news-result-meta";
+import { FavoriteButton } from "./favorite-button";
 
 export const dynamic = "force-dynamic";
 
@@ -122,20 +123,25 @@ export default async function NewsPage({
         <section className="panel search-head-card">
           <div className="head-actions">
             <RefreshNewsButton />
-            <NewsControlsModal
-              initialQuery={result.appliedQuery}
-              initialFrom={from}
-              initialTo={to}
-              initialPageSize={result.pageSize}
-              initialScanLimit={result.scanLimit}
-              initialKeywords={result.preferences.keywords}
-              initialFeedUrls={result.preferences.feedUrls}
-              initialMaxItemsPerFeed={result.preferences.maxItemsPerFeed}
-              initialDefaultPageSize={result.preferences.defaultPageSize}
-              initialPreferJapanese={result.preferences.preferJapanese}
-              initialIncludePaywalled={result.preferences.includePaywalled}
-              initialPaywallMode={result.paywallMode}
-            />
+            <div className="actions-row">
+              <NewsControlsModal
+                initialQuery={result.appliedQuery}
+                initialFrom={from}
+                initialTo={to}
+                initialPageSize={result.pageSize}
+                initialScanLimit={result.scanLimit}
+                initialKeywords={result.preferences.keywords}
+                initialFeedUrls={result.preferences.feedUrls}
+                initialMaxItemsPerFeed={result.preferences.maxItemsPerFeed}
+                initialDefaultPageSize={result.preferences.defaultPageSize}
+                initialPreferJapanese={result.preferences.preferJapanese}
+                initialIncludePaywalled={result.preferences.includePaywalled}
+                initialPaywallMode={result.paywallMode}
+              />
+              <Link className="button-secondary" href="/favorites">
+                Favorites
+              </Link>
+            </div>
           </div>
           <NewsResultMeta
             total={result.total}
@@ -156,7 +162,10 @@ export default async function NewsPage({
           {result.items.map((item) => (
             <article className="panel news-card" key={item.id}>
               <p className="news-meta">{formatDate(item.publishedAt)}</p>
-              <h3>{item.title}</h3>
+              <div className="news-card-head">
+                <h3>{item.title}</h3>
+                <FavoriteButton newsItemId={item.id} initialIsFavorite={item.isFavorite} />
+              </div>
               {item.summary ? <p>{item.summary}</p> : null}
               <a href={item.url} target="_blank" rel="noreferrer">
                 Read article

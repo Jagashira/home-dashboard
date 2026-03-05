@@ -8,6 +8,13 @@ type SummaryButtonProps = {
   summary: string | null;
 };
 
+function normalizeSummaryText(value: string): string {
+  return value
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "・")
+    .trim();
+}
+
 type SummaryUsage = {
   input_tokens?: number;
   output_tokens?: number;
@@ -56,7 +63,7 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
         return;
       }
 
-      setResult(payload.summary);
+      setResult(normalizeSummaryText(String(payload.summary ?? "")));
       setUsage(payload.usage ?? null);
       setCostJpy(typeof payload.estimatedCostJpy === "number" ? payload.estimatedCostJpy : null);
       setUsedFullArticle(typeof payload.usedFullArticle === "boolean" ? payload.usedFullArticle : null);
@@ -74,7 +81,7 @@ export function SummaryButton({ title, url, summary }: SummaryButtonProps) {
       </button>
 
       {error ? <p className="error-text">{error}</p> : null}
-      {result ? <pre className="summary-box">{result}</pre> : null}
+      {result ? <div className="summary-box">{result}</div> : null}
       {usage ? (
         <p className="meta-text">
           tokens in/out/total: {usage.input_tokens ?? 0}/{usage.output_tokens ?? 0}/

@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
             content: [
               {
                 type: "input_text",
-                text: "You summarize tech news in Japanese. Return concise markdown with: 1) 要点(2-3行) 2) 重要ポイント(箇条書き3点以内)."
+                text: "You summarize tech news in Japanese. Return plain text only. Format: 1) 要点(2-3行) 2) 重要ポイント(3点以内)。Do not use markdown syntax like #, *, -, or code blocks."
               }
             ]
           },

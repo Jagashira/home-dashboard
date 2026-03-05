@@ -281,6 +281,7 @@ main {
   white-space: pre-wrap;
   font-family: "Sora", "Avenir Next", "Segoe UI", sans-serif;
   font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .modal-overlay {
@@ -368,6 +369,31 @@ main {
 .news-card {
   display: grid;
   gap: 0.65rem;
+}
+
+.news-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.6rem;
+}
+
+.heart-button {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #fff;
+  color: #7b8498;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.heart-button.is-active {
+  color: #e11d48;
+  border-color: #f8a6bb;
+  background: #fff2f6;
 }
 
 .news-card a {

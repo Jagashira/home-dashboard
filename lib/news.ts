@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Parser from "rss-parser";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export const DEFAULT_NEWS_KEYWORDS = ["半導体", "AI", "テック"];
@@ -56,6 +56,10 @@ type NewsPreferencesRow = {
   defaultPageSize: number;
   preferJapanese: number;
   includePaywalled: number;
+};
+
+type FavoriteNewsRow = {
+  newsItemId: string;
 };
 
 const parser = new Parser();
@@ -186,12 +190,22 @@ async function ensureNewsSchema() {
       );
     `);
 
-    try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "FavoriteNews" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "newsItemId" TEXT NOT NULL UNIQUE,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    const columnRows = await prisma.$queryRaw<Array<{ name: string }>>`
+      SELECT name FROM pragma_table_info('NewsPreferences')
+    `;
+    const hasIncludePaywalled = columnRows.some((row) => row.name === "includePaywalled");
+    if (!hasIncludePaywalled) {
       await prisma.$executeRawUnsafe(`
         ALTER TABLE "NewsPreferences" ADD COLUMN "includePaywalled" INTEGER NOT NULL DEFAULT 0;
       `);
-    } catch {
-      // Ignore if column already exists.
     }
   })();
 
@@ -472,9 +486,14 @@ export async function searchNews(input: SearchNewsInput) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
   const offset = (safePage - 1) * pageSize;
+  const pageItems = filtered.slice(offset, offset + pageSize);
+  const favoriteSet = await getFavoriteNewsIdSet(pageItems.map((item) => item.id));
 
   return {
-    items: filtered.slice(offset, offset + pageSize),
+    items: pageItems.map((item) => ({
+      ...item,
+      isFavorite: favoriteSet.has(item.id)
+    })),
     total,
     page: safePage,
     pageSize,
@@ -483,5 +502,86 @@ export async function searchNews(input: SearchNewsInput) {
     preferences,
     scanLimit,
     paywallMode
+  };
+}
+
+async function getFavoriteNewsIdSet(newsItemIds: string[]): Promise<Set<string>> {
+  await ensureNewsSchema();
+  if (newsItemIds.length === 0) {
+    return new Set();
+  }
+
+  const rows = await prisma.$queryRaw<FavoriteNewsRow[]>`
+    SELECT newsItemId
+    FROM "FavoriteNews"
+    WHERE newsItemId IN (${Prisma.join(newsItemIds)})
+  `;
+
+  return new Set(rows.map((row) => row.newsItemId));
+}
+
+export async function toggleFavoriteNews(newsItemId: string) {
+  await ensureNewsSchema();
+
+  const existing = await prisma.$queryRaw<FavoriteNewsRow[]>`
+    SELECT newsItemId
+    FROM "FavoriteNews"
+    WHERE newsItemId = ${newsItemId}
+    LIMIT 1
+  `;
+
+  if (existing.length > 0) {
+    await prisma.$executeRaw`
+      DELETE FROM "FavoriteNews"
+      WHERE newsItemId = ${newsItemId}
+    `;
+    return { isFavorite: false };
+  }
+
+  await prisma.$executeRaw`
+    INSERT INTO "FavoriteNews" (newsItemId)
+    VALUES (${newsItemId})
+  `;
+
+  return { isFavorite: true };
+}
+
+export async function getFavoriteNews(page = 1, pageSize = 50) {
+  await ensureNewsSchema();
+
+  const safePage = Math.max(1, page);
+  const safePageSize = clamp(pageSize, 5, 100);
+  const offset = (safePage - 1) * safePageSize;
+
+  const totalRows = await prisma.$queryRaw<Array<{ count: number }>>`
+    SELECT COUNT(*) as count FROM "FavoriteNews"
+  `;
+  const total = Number(totalRows[0]?.count ?? 0);
+
+  const items = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      feedUrl: string;
+      title: string;
+      url: string;
+      summary: string | null;
+      publishedAt: Date | null;
+      createdAt: Date;
+    }>
+  >`
+    SELECT n.id, n.feedUrl, n.title, n.url, n.summary, n.publishedAt, n.createdAt
+    FROM "FavoriteNews" f
+    INNER JOIN "NewsItem" n ON n.id = f.newsItemId
+    ORDER BY f.createdAt DESC
+    LIMIT ${safePageSize}
+    OFFSET ${offset}
+  `;
+
+  return {
+    items: items.map((item) => ({ ...item, isFavorite: true })),
+    total,
+    page: safePage,
+    pageSize: safePageSize,
+    totalPages: Math.max(1, Math.ceil(total / safePageSize))
   };
 }
