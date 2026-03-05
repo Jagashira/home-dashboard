@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 
 export type BudgetEntryType = "EXPENSE" | "INCOME";
 export type DailyRangeOption = "today" | "7d" | "30d";
+export type ExpenseScopeOption = "month" | "today" | "week" | "custom";
 
 export type BudgetEntryInput = {
   entryType: BudgetEntryType;
@@ -47,6 +48,12 @@ function monthEnd(ym: string): string {
   const next = new Date(y, m, 1);
   next.setDate(0);
   return dateToYmd(next);
+}
+
+function addDays(value: string, days: number): string {
+  const date = toDate(value);
+  date.setDate(date.getDate() + days);
+  return dateToYmd(date);
 }
 
 function clampAmount(value: number): number {
@@ -244,5 +251,137 @@ export async function getBudgetDashboard(input: {
       income: toSafeNumber(row.income),
       expense: toSafeNumber(row.expense)
     }))
+  };
+}
+
+export async function getExpenseDashboard(input: {
+  month: string;
+  today?: string;
+  scope: ExpenseScopeOption;
+  from?: string;
+  to?: string;
+}) {
+  await ensureBudgetSchema();
+
+  const baseToday = input.today && input.today.length >= 10 ? input.today : dateToYmd(new Date());
+  const selectedMonth = input.month || baseToday.slice(0, 7);
+  const monthFrom = monthStart(selectedMonth);
+  const monthTo = monthEnd(selectedMonth);
+
+  const selectedFrom = (() => {
+    if (input.scope === "today") return baseToday;
+    if (input.scope === "week") return addDays(baseToday, -6);
+    if (input.scope === "custom") return input.from && input.from.length >= 10 ? input.from : monthFrom;
+    return monthFrom;
+  })();
+
+  const selectedTo = (() => {
+    if (input.scope === "today" || input.scope === "week") return baseToday;
+    if (input.scope === "custom") return input.to && input.to.length >= 10 ? input.to : baseToday;
+    return monthTo;
+  })();
+
+  const normalizedFrom = selectedFrom <= selectedTo ? selectedFrom : selectedTo;
+  const normalizedTo = selectedFrom <= selectedTo ? selectedTo : selectedFrom;
+
+  const [monthTotalRow] = await prisma.$queryRaw<Array<{ total: number | bigint }>>`
+    SELECT COALESCE(SUM(amount), 0) AS total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${monthFrom}
+      AND date <= ${monthTo}
+  `;
+
+  const monthByCategoryRows = await prisma.$queryRaw<Array<{ label: string; total: number | bigint }>>`
+    SELECT category as label, COALESCE(SUM(amount), 0) as total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${monthFrom}
+      AND date <= ${monthTo}
+    GROUP BY category
+    ORDER BY total DESC
+    LIMIT 24
+  `;
+
+  const monthByStoreRows = await prisma.$queryRaw<Array<{ label: string; total: number | bigint }>>`
+    SELECT storeName as label, COALESCE(SUM(amount), 0) as total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${monthFrom}
+      AND date <= ${monthTo}
+    GROUP BY storeName
+    ORDER BY total DESC
+    LIMIT 24
+  `;
+
+  const monthByDayRows = await prisma.$queryRaw<Array<{ day: string; total: number | bigint }>>`
+    SELECT date as day, COALESCE(SUM(amount), 0) as total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${monthFrom}
+      AND date <= ${monthTo}
+    GROUP BY date
+    ORDER BY date ASC
+  `;
+
+  const [rangeTotalRow] = await prisma.$queryRaw<Array<{ total: number | bigint }>>`
+    SELECT COALESCE(SUM(amount), 0) AS total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${normalizedFrom}
+      AND date <= ${normalizedTo}
+  `;
+
+  const rangeByCategoryRows = await prisma.$queryRaw<Array<{ label: string; total: number | bigint }>>`
+    SELECT category as label, COALESCE(SUM(amount), 0) as total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${normalizedFrom}
+      AND date <= ${normalizedTo}
+    GROUP BY category
+    ORDER BY total DESC
+    LIMIT 24
+  `;
+
+  const rangeByStoreRows = await prisma.$queryRaw<Array<{ label: string; total: number | bigint }>>`
+    SELECT storeName as label, COALESCE(SUM(amount), 0) as total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${normalizedFrom}
+      AND date <= ${normalizedTo}
+    GROUP BY storeName
+    ORDER BY total DESC
+    LIMIT 24
+  `;
+
+  const rangeItems = await prisma.$queryRaw<BudgetEntryRow[]>`
+    SELECT *
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date >= ${normalizedFrom}
+      AND date <= ${normalizedTo}
+    ORDER BY date DESC, createdAt DESC
+    LIMIT 120
+  `;
+
+  return {
+    selectedMonth,
+    scope: input.scope,
+    range: {
+      from: normalizedFrom,
+      to: normalizedTo,
+      total: toSafeNumber(rangeTotalRow?.total ?? 0),
+      byCategory: rangeByCategoryRows.map((row) => ({ label: row.label || "未分類", total: toSafeNumber(row.total) })),
+      byStore: rangeByStoreRows.map((row) => ({ label: row.label || "不明", total: toSafeNumber(row.total) })),
+      items: rangeItems
+    },
+    month: {
+      from: monthFrom,
+      to: monthTo,
+      total: toSafeNumber(monthTotalRow?.total ?? 0),
+      byCategory: monthByCategoryRows.map((row) => ({ label: row.label || "未分類", total: toSafeNumber(row.total) })),
+      byStore: monthByStoreRows.map((row) => ({ label: row.label || "不明", total: toSafeNumber(row.total) })),
+      byDay: monthByDayRows.map((row) => ({ day: row.day, total: toSafeNumber(row.total) }))
+    }
   };
 }

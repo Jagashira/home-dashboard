@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { DailyRangeOption, getBudgetDashboard } from "@/lib/budget";
+import { ExpenseScopeOption, getExpenseDashboard } from "@/lib/budget";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+type ChartType = "category" | "store" | "daily";
 
 type ChartRow = {
   label: string;
@@ -11,18 +13,12 @@ type ChartRow = {
 };
 
 function getString(value: string | string[] | undefined) {
-  if (Array.isArray(value)) {
-    return value[0] ?? "";
-  }
+  if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
 }
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function toMonth(ymd: string) {
-  return ymd.slice(0, 7);
 }
 
 function formatYen(value: number) {
@@ -33,33 +29,25 @@ function formatYen(value: number) {
   }).format(value);
 }
 
-function toNumber(value: number | bigint | string | null | undefined): number {
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "number") return value;
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(date);
 }
 
-function toQuery(base: {
+function queryHref(base: {
   month: string;
-  date: string;
-  range: DailyRangeOption;
-  expenseView: "month" | "day";
+  scope: ExpenseScopeOption;
+  from: string;
+  to: string;
+  chart: ChartType;
 }) {
   const params = new URLSearchParams();
   params.set("month", base.month);
-  params.set("date", base.date);
-  params.set("range", base.range);
-  params.set("expenseView", base.expenseView);
+  params.set("scope", base.scope);
+  params.set("from", base.from);
+  params.set("to", base.to);
+  params.set("chart", base.chart);
   return `/budget?${params.toString()}`;
 }
 
@@ -75,8 +63,6 @@ function BarChart({ title, rows, emptyText }: { title: string; rows: ChartRow[];
         <div className="budget-bars">
           {rows.map((row) => {
             const width = max <= 0 ? 0 : Math.max(3, Math.round((row.value / max) * 100));
-
-            // Keep the bar visually comparable regardless of absolute amount.
             return (
               <div className="budget-bar-row" key={`${title}-${row.label}`}>
                 <div className="budget-bar-meta">
@@ -95,11 +81,9 @@ function BarChart({ title, rows, emptyText }: { title: string; rows: ChartRow[];
   );
 }
 
-function EntryList({
-  title,
+function RecentExpenseList({
   items
 }: {
-  title: string;
   items: Array<{
     id: string;
     date: string;
@@ -107,14 +91,13 @@ function EntryList({
     category: string;
     paymentMethod: string;
     storeName: string;
-    memo: string | null;
   }>;
 }) {
   return (
     <section className="panel budget-list-card">
-      <h3>{title}</h3>
+      <h3>支出リスト</h3>
       {items.length === 0 ? (
-        <p className="status-text">データがありません</p>
+        <p className="status-text">この期間の支出はありません</p>
       ) : (
         <div className="budget-list">
           {items.map((item) => (
@@ -125,7 +108,6 @@ function EntryList({
                 <p className="budget-list-meta">
                   {item.category} / {item.paymentMethod}
                 </p>
-                {item.memo ? <p className="budget-list-memo">{item.memo}</p> : null}
               </div>
               <strong>{formatYen(item.amount)}</strong>
             </article>
@@ -142,168 +124,142 @@ export default async function BudgetPage({
   searchParams?: Promise<SearchParams>;
 }) {
   const resolved = searchParams ? await searchParams : {};
-  const today = todayYmd();
 
-  const date = getString(resolved.date) || today;
-  const month = getString(resolved.month) || toMonth(date);
-  const rangeRaw = getString(resolved.range);
-  const range: DailyRangeOption = rangeRaw === "7d" || rangeRaw === "30d" ? rangeRaw : "today";
-  const expenseViewRaw = getString(resolved.expenseView);
-  const expenseView: "month" | "day" = expenseViewRaw === "day" ? "day" : "month";
+  const now = todayYmd();
+  const month = getString(resolved.month) || now.slice(0, 7);
+  const scopeRaw = getString(resolved.scope);
+  const scope: ExpenseScopeOption =
+    scopeRaw === "today" || scopeRaw === "week" || scopeRaw === "custom" ? scopeRaw : "month";
 
-  const dashboard = await getBudgetDashboard({ month, date, dailyRange: range });
+  const chartRaw = getString(resolved.chart);
+  const chart: ChartType = chartRaw === "store" || chartRaw === "daily" ? chartRaw : "category";
 
-  const commonQuery = {
+  const dashboard = await getExpenseDashboard({
+    month,
+    scope,
+    from: getString(resolved.from),
+    to: getString(resolved.to)
+  });
+
+  const queryBase = {
     month: dashboard.selectedMonth,
-    date: dashboard.selectedDate,
-    range: dashboard.dailyRange,
-    expenseView
+    scope: dashboard.scope,
+    from: dashboard.range.from,
+    to: dashboard.range.to,
+    chart
   };
 
-  const incomeRows = dashboard.monthlyIncomeByAccount.map((row) => ({ label: row.account, value: row.total }));
-  const monthlyExpenseRows = dashboard.monthlyExpenseByDay.map((row) => ({
-    label: row.day.slice(8, 10),
-    value: toNumber(row.total)
-  }));
-  const rangeRows = dashboard.dailyRangeGraph.map((row) => ({
-    label: row.day.slice(5),
-    value: toNumber(row.total)
-  }));
-  const trendRows = dashboard.monthTrendRows.map((row) => ({
-    label: row.monthKey,
-    value: Math.max(0, toNumber(row.income) - toNumber(row.expense))
-  }));
+  const activeRows: ChartRow[] =
+    chart === "daily"
+      ? dashboard.month.byDay.map((row) => ({ label: row.day.slice(5), value: row.total }))
+      : chart === "store"
+        ? dashboard.range.byStore.map((row) => ({ label: row.label, value: row.total }))
+        : dashboard.range.byCategory.map((row) => ({ label: row.label, value: row.total }));
+
+  const graphTitle =
+    chart === "daily"
+      ? `日別支出 (${dashboard.selectedMonth})`
+      : chart === "store"
+        ? "店別支出"
+        : "カテゴリ別支出";
 
   return (
     <section className="stack-lg">
       <section className="panel budget-hero">
         <div className="budget-grid-bg" aria-hidden="true" />
-        <div className="budget-hero-body">
-          <p className="label-caption">HOUSEHOLD FINANCE</p>
+        <div className="budget-hero-body stack-md">
+          <p className="label-caption">HOUSEHOLD SPENDING</p>
           <h1 className="budget-title">Budget Dashboard</h1>
-          <div className="budget-controls-row">
-            <label className="field budget-compact-field">
-              <span>月</span>
-              <input
-                type="month"
-                name="month"
-                defaultValue={dashboard.selectedMonth}
-                form="budget-filter-form"
-              />
-            </label>
-            <label className="field budget-compact-field">
-              <span>対象日</span>
-              <input
-                type="date"
-                name="date"
-                defaultValue={dashboard.selectedDate}
-                form="budget-filter-form"
-              />
-            </label>
-            <form id="budget-filter-form" action="/budget" className="budget-inline-form">
-              <input type="hidden" name="expenseView" value={expenseView} />
-              <input type="hidden" name="range" value={dashboard.dailyRange} />
-              <button className="button-secondary" type="submit">
-                更新
-              </button>
-            </form>
+          <div className="actions-row">
+            <Link className="button-primary" href="/budget/expenses">
+              支出入力
+            </Link>
+            <Link className="button-secondary" href="/budget/income">
+              収入入力
+            </Link>
           </div>
         </div>
       </section>
 
-      <section className="grid-3 budget-metrics-grid">
-        <article className="panel budget-metric">
-          <p className="label-caption">月間収入</p>
-          <h3>{formatYen(toNumber(dashboard.monthlyTotals.income))}</h3>
-        </article>
-        <article className="panel budget-metric">
-          <p className="label-caption">月間支出</p>
-          <h3>{formatYen(toNumber(dashboard.monthlyTotals.expense))}</h3>
-        </article>
-        <article className="panel budget-metric">
-          <p className="label-caption">月間収支</p>
-          <h3>{formatYen(toNumber(dashboard.monthlyBalance))}</h3>
-        </article>
-      </section>
-
-      <section className="budget-dashboard-grid">
-        <BarChart
-          title="口座別入金 (三井住友 / ゆうちょ)"
-          rows={incomeRows.map((row) => ({ ...row, value: toNumber(row.value) }))}
-          emptyText="当月の収入はまだありません"
-        />
-        <BarChart title="月次収支トレンド" rows={trendRows} emptyText="トレンドデータがありません" />
-      </section>
-
       <section className="grid-2">
-        <article className="panel">
-          <h3>支出を入力</h3>
-          <p className="status-text">日付・カテゴリ・支払い方法・店名を入力します。</p>
-          <Link className="button-primary" href="/budget/expenses">
-            支出入力へ
-          </Link>
+        <article className="panel budget-metric">
+          <p className="label-caption">今月の支出合計</p>
+          <h3>{formatYen(dashboard.month.total)}</h3>
+          <p className="status-text">
+            {dashboard.month.from} - {dashboard.month.to}
+          </p>
         </article>
-        <article className="panel">
-          <h3>収入を入力</h3>
-          <p className="status-text">三井住友/ゆうちょなどの入金を登録します。</p>
-          <Link className="button-primary" href="/budget/income">
-            収入入力へ
-          </Link>
+        <article className="panel budget-metric">
+          <p className="label-caption">選択期間の支出合計</p>
+          <h3>{formatYen(dashboard.range.total)}</h3>
+          <p className="status-text">
+            {dashboard.range.from} - {dashboard.range.to}
+          </p>
         </article>
       </section>
 
       <section className="panel budget-switch-row">
         <div className="chip-row">
-          <Link
-            className={`chip ${expenseView === "month" ? "chip-active" : ""}`}
-            href={toQuery({ ...commonQuery, expenseView: "month" })}
-          >
-            支出: 月別
+          <Link className={`chip ${scope === "month" ? "chip-active" : ""}`} href={queryHref({ ...queryBase, scope: "month" })}>
+            今月
           </Link>
-          <Link
-            className={`chip ${expenseView === "day" ? "chip-active" : ""}`}
-            href={toQuery({ ...commonQuery, expenseView: "day" })}
-          >
-            支出: 日別
+          <Link className={`chip ${scope === "today" ? "chip-active" : ""}`} href={queryHref({ ...queryBase, scope: "today" })}>
+            今日
+          </Link>
+          <Link className={`chip ${scope === "week" ? "chip-active" : ""}`} href={queryHref({ ...queryBase, scope: "week" })}>
+            1週間
+          </Link>
+          <Link className={`chip ${scope === "custom" ? "chip-active" : ""}`} href={queryHref({ ...queryBase, scope: "custom" })}>
+            期間指定
           </Link>
         </div>
 
-        {expenseView === "day" ? (
-          <div className="chip-row">
-            <Link
-              className={`chip ${dashboard.dailyRange === "today" ? "chip-active" : ""}`}
-              href={toQuery({ ...commonQuery, range: "today" })}
-            >
-              当日
-            </Link>
-            <Link
-              className={`chip ${dashboard.dailyRange === "7d" ? "chip-active" : ""}`}
-              href={toQuery({ ...commonQuery, range: "7d" })}
-            >
-              7日
-            </Link>
-            <Link
-              className={`chip ${dashboard.dailyRange === "30d" ? "chip-active" : ""}`}
-              href={toQuery({ ...commonQuery, range: "30d" })}
-            >
-              30日
-            </Link>
-          </div>
-        ) : null}
+        <div className="chip-row">
+          <Link
+            className={`chip ${chart === "category" ? "chip-active" : ""}`}
+            href={queryHref({ ...queryBase, chart: "category" })}
+          >
+            カテゴリ
+          </Link>
+          <Link
+            className={`chip ${chart === "store" ? "chip-active" : ""}`}
+            href={queryHref({ ...queryBase, chart: "store" })}
+          >
+            店別
+          </Link>
+          <Link
+            className={`chip ${chart === "daily" ? "chip-active" : ""}`}
+            href={queryHref({ ...queryBase, chart: "daily" })}
+          >
+            日別 (月)
+          </Link>
+        </div>
+
+        <form action="/budget" className="budget-controls-row">
+          <input type="hidden" name="scope" value={scope} />
+          <input type="hidden" name="chart" value={chart} />
+          <label className="field budget-compact-field">
+            <span>対象月 (日別グラフ用)</span>
+            <input type="month" name="month" defaultValue={dashboard.selectedMonth} />
+          </label>
+          <label className="field budget-compact-field">
+            <span>From</span>
+            <input type="date" name="from" defaultValue={dashboard.range.from} />
+          </label>
+          <label className="field budget-compact-field">
+            <span>To</span>
+            <input type="date" name="to" defaultValue={dashboard.range.to} />
+          </label>
+          <button className="button-secondary" type="submit">
+            反映
+          </button>
+        </form>
       </section>
 
-      {expenseView === "month" ? (
-        <section className="budget-dashboard-grid">
-          <BarChart title="日別支出 (月間)" rows={monthlyExpenseRows} emptyText="当月の支出はまだありません" />
-          <EntryList title="月別支出リスト" items={dashboard.monthlyItems} />
-        </section>
-      ) : (
-        <section className="budget-dashboard-grid">
-          <BarChart title={`日別支出 (${dashboard.dailyRange})`} rows={rangeRows} emptyText="期間内の支出はまだありません" />
-          <EntryList title={`日別支出リスト (${formatDate(dashboard.selectedDate)})`} items={dashboard.dailyItems} />
-        </section>
-      )}
-
+      <section className="budget-dashboard-grid">
+        <BarChart title={graphTitle} rows={activeRows} emptyText="表示データがありません" />
+        <RecentExpenseList items={dashboard.range.items} />
+      </section>
     </section>
   );
 }
