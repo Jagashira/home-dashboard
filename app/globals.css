@@ -71,7 +71,7 @@ main {
 .panel {
   padding: 1.1rem;
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--card);
   backdrop-filter: blur(12px);
   box-shadow: 0 6px 18px rgba(33, 38, 57, 0.06);
@@ -111,6 +111,7 @@ main {
   background: var(--accent);
   color: #fff;
   padding: 0.55rem 0.95rem;
+  min-height: 42px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -130,6 +131,7 @@ main {
   background: rgba(255, 255, 255, 0.8);
   color: #1f2a44;
   padding: 0.52rem 0.95rem;
+  min-height: 42px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -182,6 +184,7 @@ main {
   border: 1px solid var(--card-border);
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
+  min-height: 38px;
   background: #fff;
   cursor: pointer;
 }
@@ -445,7 +448,11 @@ main {
 .budget-hero {
   position: relative;
   overflow: hidden;
-  padding: 1.1rem;
+  padding: 1.25rem;
+  border-color: rgba(37, 99, 235, 0.2);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(237, 243, 255, 0.92)),
+    radial-gradient(circle at 86% 18%, rgba(59, 130, 246, 0.15), transparent 40%);
 }
 
 .budget-grid-bg {
@@ -470,6 +477,12 @@ main {
   letter-spacing: -0.03em;
 }
 
+.budget-summary-grid .budget-metric {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+}
+
 .budget-controls-row {
   margin-top: 0.7rem;
   display: grid;
@@ -492,12 +505,13 @@ main {
 
 .budget-metric h3 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
+  letter-spacing: -0.02em;
 }
 
 .budget-dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1rem;
 }
 
@@ -545,10 +559,17 @@ main {
 }
 
 .budget-switch-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.budget-chip-group {
+  row-gap: 0.45rem;
+}
+
+.budget-filter-grid {
+  margin-top: 0.2rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .budget-list {
@@ -568,6 +589,11 @@ main {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.95);
   padding: 0.65rem 0.75rem;
+}
+
+.budget-list-item > strong {
+  white-space: nowrap;
+  padding-left: 0.55rem;
 }
 
 .budget-list-date,
@@ -636,13 +662,60 @@ main {
   color: #64748b;
 }
 
+@media (max-width: 940px) {
+  .budget-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .budget-dashboard-grid {
     grid-template-columns: 1fr;
   }
 
   .budget-switch-row {
+    gap: 0.65rem;
+  }
+
+  .budget-chip-group {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.2rem;
+  }
+
+  .budget-chip-group .chip {
+    white-space: nowrap;
+  }
+
+  .budget-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-hero {
+    padding: 1rem;
+  }
+
+  .budget-list {
+    max-height: 360px;
+  }
+
+  .budget-list-item {
     flex-direction: column;
-    align-items: flex-start;
+    gap: 0.45rem;
+  }
+
+  .budget-list-item > strong {
+    padding-left: 0;
+  }
+
+  .modal-card {
+    width: min(98vw, 98vw);
+    max-height: 90vh;
+    padding: 0.85rem;
+  }
+
+  .button-primary,
+  .button-secondary {
+    min-height: 44px;
   }
 }

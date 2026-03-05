@@ -139,7 +139,7 @@ export default async function BudgetPage({
         </div>
       </section>
 
-      <section className="grid-2">
+      <section className="grid-2 budget-summary-grid">
         <article className="panel budget-metric">
           <p className="label-caption">今月の支出合計</p>
           <h3>{formatYen(dashboard.month.total)}</h3>
@@ -157,7 +157,7 @@ export default async function BudgetPage({
       </section>
 
       <section className="panel budget-switch-row">
-        <div className="chip-row">
+        <div className="chip-row budget-chip-group">
           <Link className={`chip ${scope === "month" ? "chip-active" : ""}`} href={queryHref({ ...queryBase, scope: "month" })}>
             今月
           </Link>
@@ -172,7 +172,7 @@ export default async function BudgetPage({
           </Link>
         </div>
 
-        <div className="chip-row">
+        <div className="chip-row budget-chip-group">
           <Link
             className={`chip ${chart === "category" ? "chip-active" : ""}`}
             href={queryHref({ ...queryBase, chart: "category" })}
@@ -193,7 +193,7 @@ export default async function BudgetPage({
           </Link>
         </div>
 
-        <form action="/budget" className="budget-controls-row">
+        <form action="/budget" className="budget-controls-row budget-filter-grid">
           <input type="hidden" name="scope" value={scope} />
           <input type="hidden" name="chart" value={chart} />
           <label className="field budget-compact-field">
