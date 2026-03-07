@@ -1,10 +1,13 @@
 import { PlannerDashboard } from "./planner-dashboard";
+import { PlannerTasksTabs } from "../planner-tasks-tabs";
 
 export const dynamic = "force-dynamic";
 
 export default function PlannerPage() {
   return (
     <section className="stack-lg">
+      <PlannerTasksTabs current="planner" />
+
       <section className="panel budget-hero">
         <div className="budget-grid-bg" aria-hidden="true" />
         <div className="budget-hero-body stack-sm">
