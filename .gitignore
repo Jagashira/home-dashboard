@@ -15,5 +15,3 @@ news_service/.venv
 news_service/data/*.db
 news_service/data/*.db-journal
 news_service/data/fetch.log
-news_service/app/__pycache__/
-news_service/**/*.pyc
