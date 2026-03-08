@@ -186,9 +186,70 @@ function extractReply(messages: JsonRpcResponse[], requestId: string): JsonRpcRe
   return message;
 }
 
-function normalizeNewsPayload(raw: unknown): NewsPayload {
+function normalizeNewsPayload(raw: unknown, fallbackQuery = ""): NewsPayload {
   if (!raw || typeof raw !== "object") {
     throw new Error("Tool response is not an object.");
+  }
+
+  // Native Tavily MCP ToolResult shape:
+  // { ok, query, total_results, results, metadata, error? }
+  const toolResult = raw as {
+    ok?: unknown;
+    query?: unknown;
+    total_results?: unknown;
+    results?: unknown;
+    metadata?: unknown;
+    error?: unknown;
+  };
+
+  if ("results" in toolResult && !("attributes" in (raw as Record<string, unknown>))) {
+    if (toolResult.ok === false) {
+      throw new Error(
+        typeof toolResult.error === "string" ? toolResult.error : "tavily_news returned error"
+      );
+    }
+
+    const resultsArray = Array.isArray(toolResult.results) ? toolResult.results : [];
+    const articles: NewsPayload["attributes"]["articles"] = [];
+
+    for (const item of resultsArray) {
+      if (!item || typeof item !== "object") continue;
+      const article = item as Record<string, unknown>;
+      const title = typeof article.title === "string" ? article.title : "(untitled)";
+      const url = typeof article.url === "string" ? article.url : "";
+      articles.push({
+        title,
+        url,
+        source: typeof article.source === "string" ? article.source : undefined,
+        published_date:
+          typeof article.published_date === "string" ? article.published_date : undefined,
+        score: typeof article.score === "number" ? article.score : undefined,
+        content: typeof article.content === "string" ? article.content : undefined
+      });
+    }
+
+    return {
+      state: "ok",
+      attributes: {
+        tool: "tavily_news",
+        query:
+          typeof toolResult.query === "string" && toolResult.query.trim().length > 0
+            ? toolResult.query
+            : fallbackQuery,
+        total_results:
+          typeof toolResult.total_results === "number"
+            ? toolResult.total_results
+            : articles.length,
+        top_headline: articles[0]?.title,
+        top_url: articles[0]?.url,
+        updated_at: new Date().toISOString(),
+        metadata:
+          toolResult.metadata && typeof toolResult.metadata === "object"
+            ? (toolResult.metadata as Record<string, unknown>)
+            : undefined,
+        articles
+      }
+    };
   }
 
   const parsed = raw as {
@@ -356,13 +417,10 @@ function buildNewsArgs(args: TavilyNewsArgs, tool: McpTool | undefined): Record<
   if (timeframeKey && !out[daysKey ?? ""]) out[timeframeKey] = `${args.days}d`;
 
   if (props.length === 0) {
-    // Unknown schema fallback for permissive MCP servers.
+    // Unknown schema fallback: keep canonical names only.
     out.query = args.query;
-    out.q = args.query;
-    out.search_query = args.query;
     out.max_results = args.max_results;
     out.days = args.days;
-    out.topic = "news";
   }
 
   return out;
@@ -411,5 +469,5 @@ export async function fetchNews(args: TavilyNewsArgs): Promise<NewsPayload> {
   const tool = tools.find((item) => item.name === toolName);
   const mappedArgs = buildNewsArgs(args, tool);
   const raw = await callTool(toolName, mappedArgs, sessionId);
-  return normalizeNewsPayload(raw);
+  return normalizeNewsPayload(raw, args.query);
 }
