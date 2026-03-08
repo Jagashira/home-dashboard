@@ -863,6 +863,24 @@ main {
   gap: 0.6rem;
 }
 
+.dashboard-news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.8rem;
+}
+
+.dashboard-news-card {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+
+.dashboard-news-card h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
 .task-item,
 .planner-item {
   border: 1px solid rgba(17, 24, 39, 0.1);
@@ -972,5 +990,9 @@ main {
   .planner-task-tabs {
     padding: 0.45rem;
     gap: 0.4rem;
+  }
+
+  .dashboard-news-grid {
+    grid-template-columns: 1fr;
   }
 }

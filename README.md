@@ -178,3 +178,49 @@ App is exposed on host port `3000`.
 - Local network / Tailscale only
 - Do not expose directly to public internet
 - `.env` is gitignored
+
+---
+
+## MCP News Dashboard (Tavily)
+
+Next.js now includes:
+
+- API: `GET /api/news?query=AI&max_results=3&days=2`
+- Page: `/dashboard/news`
+
+### Env
+
+Create `.env.local` (or set in `.env`) with:
+
+```env
+MCP_URL=http://127.0.0.1:8000/mcp
+```
+
+(`.env.local.example` is included.)
+
+### Run Next.js
+
+```bash
+npm run dev
+```
+
+Open:
+
+- `http://localhost:3000/dashboard/news`
+
+### API Example
+
+```bash
+curl "http://localhost:3000/api/news?query=AI&max_results=3&days=2"
+```
+
+### Troubleshooting (MCP server)
+
+- If API returns `{ ok:false, error: ... }`, first verify MCP server is running:
+  - `python3 -m app.mcp_http_client --output ha` (already known-good check)
+- Verify `MCP_URL` points to the correct endpoint:
+  - `http://127.0.0.1:8000/mcp`
+- Ensure MCP server supports:
+  - `initialize`
+  - `notifications/initialized`
+  - `tools/call` (`tavily_news`)
