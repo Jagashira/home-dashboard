@@ -22,6 +22,14 @@ type JsonRpcResponse = {
   };
 };
 
+type McpTool = {
+  name: string;
+  inputSchema?: {
+    type?: string;
+    properties?: Record<string, unknown>;
+  };
+};
+
 function getMcpUrl() {
   return process.env.MCP_URL || "http://127.0.0.1:8000/mcp";
 }
@@ -269,6 +277,97 @@ export async function initializeSession(): Promise<{ sessionId?: string }> {
   return { sessionId: initializeResult.sessionId };
 }
 
+async function listTools(sessionId?: string): Promise<McpTool[]> {
+  const id = `tools-${randomUUID()}`;
+  const result = await sendJsonRpc(
+    {
+      jsonrpc: "2.0",
+      id,
+      method: "tools/list"
+    },
+    { sessionId }
+  );
+
+  const message = extractReply(result.messages, id);
+  const payload = message.result as { tools?: unknown };
+  if (!Array.isArray(payload?.tools)) {
+    return [];
+  }
+
+  return payload.tools
+    .map((tool) => {
+      if (!tool || typeof tool !== "object") return null;
+      const typed = tool as Record<string, unknown>;
+      return {
+        name: typeof typed.name === "string" ? typed.name : "",
+        inputSchema:
+          typed.inputSchema && typeof typed.inputSchema === "object"
+            ? (typed.inputSchema as McpTool["inputSchema"])
+            : undefined
+      } as McpTool;
+    })
+    .filter((tool): tool is McpTool => Boolean(tool && tool.name));
+}
+
+function resolveNewsToolName(tools: McpTool[]) {
+  if (tools.find((tool) => tool.name === "tavily_news")) return "tavily_news";
+
+  const fallback =
+    tools.find((tool) => /tavily/i.test(tool.name) && /news/i.test(tool.name)) ??
+    tools.find((tool) => /news/i.test(tool.name));
+
+  return fallback?.name ?? "tavily_news";
+}
+
+function getSchemaProperties(tool: McpTool | undefined): string[] {
+  if (!tool?.inputSchema?.properties || typeof tool.inputSchema.properties !== "object") {
+    return [];
+  }
+  return Object.keys(tool.inputSchema.properties);
+}
+
+function hasProp(props: string[], names: string[]) {
+  return names.find((name) => props.includes(name));
+}
+
+function buildNewsArgs(args: TavilyNewsArgs, tool: McpTool | undefined): Record<string, unknown> {
+  const props = getSchemaProperties(tool);
+  const out: Record<string, unknown> = {};
+
+  const queryKey =
+    hasProp(props, ["query", "q", "search_query", "keyword", "keywords", "text", "term"]) ??
+    (props.length === 0 ? "query" : undefined);
+  if (queryKey) out[queryKey] = args.query;
+
+  const maxKey =
+    hasProp(props, ["max_results", "maxResults", "limit", "n_results", "top_k", "count"]) ??
+    (props.length === 0 ? "max_results" : undefined);
+  if (maxKey) out[maxKey] = args.max_results;
+
+  const daysKey =
+    hasProp(props, ["days", "published_days", "time_range_days", "recent_days"]) ??
+    (props.length === 0 ? "days" : undefined);
+  if (daysKey) out[daysKey] = args.days;
+
+  const topicKey = hasProp(props, ["topic", "category"]);
+  if (topicKey) out[topicKey] = "news";
+
+  const timeframeKey = hasProp(props, ["time_range", "timeframe"]);
+  if (timeframeKey && !out[daysKey ?? ""]) out[timeframeKey] = `${args.days}d`;
+
+  if (props.length === 0) {
+    // Unknown schema fallback for permissive MCP servers.
+    out.query = args.query;
+    out.q = args.query;
+    out.search_query = args.query;
+    out.max_results = args.max_results;
+    out.days = args.days;
+    out.topic = "news";
+  }
+
+  return out;
+}
+
 export async function callTool(
   name: string,
   args: Record<string, unknown>,
@@ -307,6 +406,10 @@ export async function callTool(
 
 export async function fetchNews(args: TavilyNewsArgs): Promise<NewsPayload> {
   const { sessionId } = await initializeSession();
-  const raw = await callTool("tavily_news", args, sessionId);
+  const tools = await listTools(sessionId);
+  const toolName = resolveNewsToolName(tools);
+  const tool = tools.find((item) => item.name === toolName);
+  const mappedArgs = buildNewsArgs(args, tool);
+  const raw = await callTool(toolName, mappedArgs, sessionId);
   return normalizeNewsPayload(raw);
 }
