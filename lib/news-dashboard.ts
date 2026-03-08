@@ -156,6 +156,15 @@ async function fetchTavilyNews(query: string, maxResults: number, days: number) 
   return payload.results ?? [];
 }
 
+function buildJapaneseFocusedQuery(baseQuery: string) {
+  const query = baseQuery.trim();
+  if (!query) {
+    return "日本語 ニュース site:.jp OR site:co.jp";
+  }
+  // Prefer Japanese sources while still allowing broader matches.
+  return `${query} 日本語 ニュース (site:.jp OR site:co.jp OR site:or.jp)`;
+}
+
 function allocateCounts(
   totalRequested: number,
   topics: Array<{ allocationPercent: number }>
@@ -418,7 +427,8 @@ export async function fetchNewsAndSummarize() {
     for (let i = 0; i < activeTopics.length; i += 1) {
       const topic = activeTopics[i];
       const targetCount = allocations[i];
-      const results = await fetchTavilyNews(`${topic.query} 日本語`, targetCount, settings.days);
+      const query = buildJapaneseFocusedQuery(topic.query);
+      const results = await fetchTavilyNews(query, targetCount, settings.days);
       totalFetched += results.length;
 
       for (const result of results) {
