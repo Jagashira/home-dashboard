@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 type TopicSetting = {
   id?: number;
   name: string;
@@ -187,4 +189,3 @@ export default function NewsSettingsPage() {
     </section>
   );
 }
-

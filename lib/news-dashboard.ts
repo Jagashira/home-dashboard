@@ -410,6 +410,7 @@ export async function fetchNewsAndSummarize() {
 
   let totalFetched = 0;
   let inserted = 0;
+  const runSeenUrls = new Set<string>();
 
   try {
     const allocations = allocateCounts(settings.totalRequested, activeTopics);
@@ -424,6 +425,8 @@ export async function fetchNewsAndSummarize() {
         const title = (result.title ?? "").trim();
         const url = (result.url ?? "").trim();
         if (!title || !url) continue;
+        if (runSeenUrls.has(url)) continue;
+        runSeenUrls.add(url);
 
         const exists = await prisma.$queryRaw<Array<{ id: number }>>`
           SELECT id FROM "articles" WHERE "url" = ${url} LIMIT 1
@@ -439,8 +442,8 @@ export async function fetchNewsAndSummarize() {
           publishedAt && Number.isFinite(publishedAt.getTime()) ? publishedAt.toISOString() : null;
         const ts = nowIso();
 
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "articles" ("topic_id", "fetch_run_id", "title", "url", "source", "published_at", "fetched_at", "content", "summary", "language", "is_japanese", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        const affectedRows = await prisma.$executeRawUnsafe(
+          `INSERT OR IGNORE INTO "articles" ("topic_id", "fetch_run_id", "title", "url", "source", "published_at", "fetched_at", "content", "summary", "language", "is_japanese", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           topic.id,
           fetchRunId,
           title,
@@ -455,7 +458,9 @@ export async function fetchNewsAndSummarize() {
           ts,
           ts
         );
-        inserted += 1;
+        if (Number(affectedRows) > 0) {
+          inserted += 1;
+        }
       }
     }
 
