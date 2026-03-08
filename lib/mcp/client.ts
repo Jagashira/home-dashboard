@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NewsPayload, TavilyNewsArgs } from "@/lib/types/news";
 
 const MCP_PROTOCOL_VERSION = "2025-03-26";
+const HTTP_TIMEOUT_MS = 20000;
 
 type JsonRpcRequest = {
   jsonrpc: "2.0";
@@ -62,6 +63,10 @@ async function parseHttpResponse(response: Response): Promise<JsonRpcResponse[]>
   const contentType = response.headers.get("content-type") || "";
   const raw = await response.text();
 
+  if (!raw.trim()) {
+    return [];
+  }
+
   if (contentType.includes("text/event-stream")) {
     return parseSse(raw);
   }
@@ -77,6 +82,33 @@ async function parseHttpResponse(response: Response): Promise<JsonRpcResponse[]>
     return [];
   } catch {
     throw new Error(`Invalid MCP response body: ${raw.slice(0, 240)}`);
+  }
+}
+
+async function pollSessionMessages(sessionId: string): Promise<JsonRpcResponse[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(getMcpUrl(), {
+      method: "GET",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": MCP_PROTOCOL_VERSION,
+        "mcp-session-id": sessionId
+      },
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`MCP session poll failed (${response.status}): ${text.slice(0, 240)}`);
+    }
+
+    return parseHttpResponse(response);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -99,20 +131,38 @@ async function sendJsonRpc(
     headers["mcp-session-id"] = options.sessionId;
   }
 
-  const response = await fetch(getMcpUrl(), {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-    cache: "no-store"
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+  let response: Response;
+
+  try {
+    response = await fetch(getMcpUrl(), {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`MCP request failed (${response.status}): ${text.slice(0, 240)}`);
   }
 
-  const messages = await parseHttpResponse(response);
+  let messages = await parseHttpResponse(response);
   const sessionId = response.headers.get("mcp-session-id") || options?.sessionId || undefined;
+
+  // Some streamable-http servers acknowledge POST with an empty body and deliver
+  // JSON-RPC messages via session stream (GET). Recover those messages here.
+  if (messages.length === 0 && sessionId && body.id !== undefined) {
+    const streamed = await pollSessionMessages(sessionId);
+    if (streamed.length > 0) {
+      messages = streamed;
+    }
+  }
 
   return { messages, sessionId };
 }
