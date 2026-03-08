@@ -10,3 +10,8 @@ pnpm-debug.log*
 *.db-journal
 data/*.db
 data/*.db-journal
+news_service/.env
+news_service/.venv
+news_service/data/*.db
+news_service/data/*.db-journal
+news_service/data/fetch.log

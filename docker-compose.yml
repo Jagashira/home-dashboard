@@ -14,3 +14,15 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+
+  news-service:
+    build:
+      context: ./news_service
+    container_name: home-news-service
+    env_file:
+      - ./news_service/.env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./news_service/data:/app/data
+    restart: unless-stopped
