@@ -5,7 +5,7 @@ Local-only home dashboard built with Next.js App Router + Prisma + SQLite.
 ## Features
 
 - Pages
-  - `/news`: RSS fetch, local search, AI summarize, favorites
+  - `/news`: Tavily news fetch, Japanese summary, topic settings
   - `/budget`: expense dashboard + expense/income input
   - `/tasks`: task CRUD (todo/done, importance/fatigue/minutes/dueDate)
   - `/planner`: Google Calendar sync, fatigue total, free-time blocks, today's plan
@@ -19,7 +19,7 @@ Local-only home dashboard built with Next.js App Router + Prisma + SQLite.
 - TypeScript
 - Prisma ORM
 - SQLite
-- rss-parser
+- Tavily API
 - googleapis
 
 ## Setup (Mac / Raspberry Pi)
@@ -125,6 +125,24 @@ Set all Google envs, then planner sync API can read today events.
 
 ## API
 
+### News
+
+- `GET /api/news`
+- `GET /api/news?topic=AI`
+- `GET /api/news/settings`
+- `PUT /api/news/settings`
+- `POST /api/news/fetch`
+- `GET /api/news/articles/:id`
+
+News collection flow:
+
+1. Read `topic_allocations`
+2. Split total count (default 30) by allocation
+3. Fetch Tavily `topic="news"` `days=1`
+4. De-dup by `articles.url` unique
+5. Summarize each new article with `gpt-4.1-mini`
+6. Store summary in `articles.summary`
+
 ### Calendar
 
 - `POST /api/calendar/sync`
@@ -181,46 +199,9 @@ App is exposed on host port `3000`.
 
 ---
 
-## MCP News Dashboard (Tavily)
+## News Dashboard
 
-Next.js now includes:
-
-- API: `GET /api/news?query=AI&max_results=3&days=2`
-- Page: `/dashboard/news`
-
-### Env
-
-Create `.env.local` (or set in `.env`) with:
-
-```env
-MCP_URL=http://127.0.0.1:8000/mcp
-```
-
-(`.env.local.example` is included.)
-
-### Run Next.js
-
-```bash
-npm run dev
-```
-
-Open:
-
-- `http://localhost:3000/dashboard/news`
-
-### API Example
-
-```bash
-curl "http://localhost:3000/api/news?query=AI&max_results=3&days=2"
-```
-
-### Troubleshooting (MCP server)
-
-- If API returns `{ ok:false, error: ... }`, first verify MCP server is running:
-  - `python3 -m app.mcp_http_client --output ha` (already known-good check)
-- Verify `MCP_URL` points to the correct endpoint:
-  - `http://127.0.0.1:8000/mcp`
-- Ensure MCP server supports:
-  - `initialize`
-  - `notifications/initialized`
-  - `tools/call` (`tavily_news`)
+- UI: `http://localhost:3000/news`
+- Settings: `http://localhost:3000/news/settings`
+- Manual fetch: `POST /api/news/fetch`
+- Daily cron: `npm run news:refresh`

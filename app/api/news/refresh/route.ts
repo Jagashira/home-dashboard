@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { refreshNewsFromFeeds } from "@/lib/news";
+import { fetchNewsAndSummarize } from "@/lib/news-dashboard";
 
 export async function POST() {
   try {
-    const result = await refreshNewsFromFeeds();
+    const result = await fetchNewsAndSummarize();
 
     return NextResponse.json({
       ok: true,
-      ...result,
+      totalFetched: result.totalFetched,
+      inserted: result.inserted,
+      totalRequested: result.totalRequested,
       refreshedAt: new Date().toISOString()
     });
   } catch (error) {
