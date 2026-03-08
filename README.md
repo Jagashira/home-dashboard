@@ -173,14 +173,6 @@ docker compose logs -f app
 
 App is exposed on host port `3000`.
 
-## FastAPI News Collector (new)
-
-Python/FastAPI 版ニュース収集・要約・表示システムを `news_service/` に追加しています。
-
-- 詳細手順: [news_service/README.md](/Users/jagashira/work/github.com/Jagashira/home-dashboard/news_service/README.md)
-- 起動: `cd news_service && uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload`
-- 画面: `http://localhost:8080/news`
-
 ## Security
 
 - Local network / Tailscale only
