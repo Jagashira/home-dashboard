@@ -13,6 +13,8 @@ export type ArticleListRow = {
   language: string | null;
   is_japanese: number;
   score: number | null;
+  is_hidden: number;
+  is_favorite: number;
 };
 
 export function insertArticle(input: {
@@ -66,6 +68,9 @@ export function listArticles(filters?: {
   topic?: string;
   sourceType?: string;
   date?: string;
+  includeHidden?: boolean;
+  onlyHidden?: boolean;
+  onlyFavorite?: boolean;
   limit?: number;
 }): ArticleListRow[] {
   const db = getDb();
@@ -83,6 +88,14 @@ export function listArticles(filters?: {
     where.push("date(a.published_at) = ?");
     params.push(filters.date);
   }
+  if (filters?.onlyHidden) {
+    where.push("a.is_hidden = 1");
+  } else if (!filters?.includeHidden) {
+    where.push("a.is_hidden = 0");
+  }
+  if (filters?.onlyFavorite) {
+    where.push("a.is_favorite = 1");
+  }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const limit = filters?.limit ?? 200;
 
@@ -91,7 +104,7 @@ export function listArticles(filters?: {
       `
       SELECT
         a.id, a.title, a.url, a.source_label, a.published_at, a.summary, a.content,
-        a.language, a.is_japanese, a.score, t.name as topic_name, s.source_type
+        a.language, a.is_japanese, a.score, a.is_hidden, a.is_favorite, t.name as topic_name, s.source_type
       FROM articles a
       JOIN topics t ON t.id = a.topic_id
       JOIN sources s ON s.id = a.source_id
@@ -110,7 +123,7 @@ export function getArticleById(id: number): ArticleListRow | undefined {
       `
       SELECT
         a.id, a.title, a.url, a.source_label, a.published_at, a.summary, a.content,
-        a.language, a.is_japanese, a.score, t.name as topic_name, s.source_type
+        a.language, a.is_japanese, a.score, a.is_hidden, a.is_favorite, t.name as topic_name, s.source_type
       FROM articles a
       JOIN topics t ON t.id = a.topic_id
       JOIN sources s ON s.id = a.source_id
@@ -119,6 +132,22 @@ export function getArticleById(id: number): ArticleListRow | undefined {
     `
     )
     .get(id) as ArticleListRow | undefined;
+}
+
+export function setArticleFavorite(id: number, favorite: boolean) {
+  const db = getDb();
+  const result = db
+    .prepare("UPDATE articles SET is_favorite=?, updated_at=? WHERE id=?")
+    .run(favorite ? 1 : 0, new Date().toISOString(), id);
+  return Number(result.changes ?? 0) > 0;
+}
+
+export function setArticleHidden(id: number, hidden: boolean) {
+  const db = getDb();
+  const result = db
+    .prepare("UPDATE articles SET is_hidden=?, updated_at=? WHERE id=?")
+    .run(hidden ? 1 : 0, new Date().toISOString(), id);
+  return Number(result.changes ?? 0) > 0;
 }
 
 export function countBySourceForLatestRun(fetchRunId: number): Array<{ source_type: string; count: number }> {

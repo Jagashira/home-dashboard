@@ -6,15 +6,15 @@ import { listArticles } from "@/lib/repositories/articles";
 
 export const dynamic = "force-dynamic";
 
-export default function FavoritesPage() {
+export default function HiddenNewsPage() {
   ensureNewsBootstrap();
-  const items = listArticles({ onlyFavorite: true, includeHidden: true, limit: 300 });
+  const items = listArticles({ onlyHidden: true, includeHidden: true, limit: 300 });
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
       <Card>
-        <h1 className="text-2xl font-semibold">お気に入り</h1>
-        <p className="mt-1 text-sm text-slate-600">{items.length} 件</p>
+        <h1 className="text-2xl font-semibold">非表示一覧</h1>
+        <p className="mt-1 text-sm text-slate-600">ここで非表示解除できます</p>
         <div className="mt-3">
           <Link href="/news" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
             ニュースへ戻る
@@ -27,7 +27,7 @@ export default function FavoritesPage() {
         ))}
         {items.length === 0 ? (
           <Card>
-            <p className="text-sm">ハートを押した記事がここに表示されます。</p>
+            <p className="text-sm">非表示の記事はありません。</p>
           </Card>
         ) : null}
       </section>

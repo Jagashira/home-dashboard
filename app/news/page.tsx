@@ -41,6 +41,14 @@ export default async function NewsPage({ searchParams }: { searchParams?: Promis
       <div className="flex justify-end">
         <NewsRefreshAction />
       </div>
+      <div className="flex justify-end gap-2">
+        <a href="/favorites" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          お気に入り
+        </a>
+        <a href="/news/hidden" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          非表示一覧
+        </a>
+      </div>
       <TopicTabs topics={topics.map((t) => t.name)} activeTopic={topic} />
 
       <section className="space-y-3">

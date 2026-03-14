@@ -52,6 +52,8 @@ export function initSchema() {
       language TEXT,
       is_japanese INTEGER NOT NULL DEFAULT 0,
       score REAL,
+      is_hidden INTEGER NOT NULL DEFAULT 0,
+      is_favorite INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -70,7 +72,19 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
     CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at);
     CREATE INDEX IF NOT EXISTS idx_articles_is_japanese ON articles(is_japanese);
+    CREATE INDEX IF NOT EXISTS idx_articles_is_hidden ON articles(is_hidden);
+    CREATE INDEX IF NOT EXISTS idx_articles_is_favorite ON articles(is_favorite);
   `);
+
+  const columns = db.prepare("PRAGMA table_info(articles)").all() as Array<{ name: string }>;
+  const hasIsHidden = columns.some((c) => c.name === "is_hidden");
+  const hasIsFavorite = columns.some((c) => c.name === "is_favorite");
+  if (!hasIsHidden) {
+    db.exec(`ALTER TABLE articles ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;`);
+  }
+  if (!hasIsFavorite) {
+    db.exec(`ALTER TABLE articles ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;`);
+  }
 }
 
 export function seedDefaults() {
