@@ -72,8 +72,6 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
     CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at);
     CREATE INDEX IF NOT EXISTS idx_articles_is_japanese ON articles(is_japanese);
-    CREATE INDEX IF NOT EXISTS idx_articles_is_hidden ON articles(is_hidden);
-    CREATE INDEX IF NOT EXISTS idx_articles_is_favorite ON articles(is_favorite);
   `);
 
   const columns = db.prepare("PRAGMA table_info(articles)").all() as Array<{ name: string }>;
@@ -85,6 +83,11 @@ export function initSchema() {
   if (!hasIsFavorite) {
     db.exec(`ALTER TABLE articles ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;`);
   }
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_articles_is_hidden ON articles(is_hidden);
+    CREATE INDEX IF NOT EXISTS idx_articles_is_favorite ON articles(is_favorite);
+  `);
 }
 
 export function seedDefaults() {
