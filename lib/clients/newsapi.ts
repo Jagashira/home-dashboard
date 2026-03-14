@@ -14,22 +14,29 @@ type NewsApiRow = {
 export async function fetchFromNewsApi(params: {
   topicName: string;
   query: string;
+  keywords: string[];
   limit: number;
   days: number;
 }): Promise<NormalizedArticle[]> {
   if (!APP_CONFIG.newsApiKey) return [];
-  const q = encodeURIComponent(params.query);
-  const endpoint = `https://newsapi.org/v2/everything?q=${q}&language=en,ja&pageSize=${params.limit}&sortBy=publishedAt`;
+  const queryTerms = params.keywords.length > 0 ? params.keywords : [params.query];
+  const q = encodeURIComponent(queryTerms.join(" OR "));
+  const from = new Date(Date.now() - params.days * 24 * 60 * 60 * 1000).toISOString();
 
-  const response = await fetch(endpoint, {
-    headers: { "X-Api-Key": APP_CONFIG.newsApiKey },
-    next: { revalidate: 0 }
-  });
-  if (!response.ok) return [];
+  const fetchLang = async (language: "ja" | "en") => {
+    const endpoint = `https://newsapi.org/v2/everything?q=${q}&pageSize=${params.limit}&sortBy=publishedAt&searchIn=title,description&from=${encodeURIComponent(from)}&language=${language}`;
+    const response = await fetch(endpoint, {
+      headers: { "X-Api-Key": APP_CONFIG.newsApiKey },
+      next: { revalidate: 0 }
+    });
+    if (!response.ok) return [] as NewsApiRow[];
+    const payload = (await response.json()) as { articles?: NewsApiRow[] };
+    return payload.articles ?? [];
+  };
 
-  const payload = (await response.json()) as { articles?: NewsApiRow[] };
+  const payloadRows = [...(await fetchLang("ja")), ...(await fetchLang("en"))];
   const out: NormalizedArticle[] = [];
-  for (const row of payload.articles ?? []) {
+  for (const row of payloadRows) {
     const title = (row.title ?? "").trim();
     const url = (row.url ?? "").trim();
     if (!title || !url) continue;

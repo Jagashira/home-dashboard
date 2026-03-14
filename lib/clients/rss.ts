@@ -8,6 +8,7 @@ const parser = new Parser();
 export async function fetchFromRss(params: {
   topicName: string;
   query: string;
+  keywords: string[];
   feeds: string[];
   limit: number;
 }): Promise<NormalizedArticle[]> {
@@ -22,7 +23,11 @@ export async function fetchFromRss(params: {
         if (!title || !url) continue;
         const content = (item.contentSnippet ?? item.content ?? "").trim();
         const merged = `${title}\n${content}`;
-        if (!merged.toLowerCase().includes(params.query.toLowerCase().split(" ")[0])) {
+        const lower = merged.toLowerCase();
+        const matched =
+          params.keywords.length === 0 ||
+          params.keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
+        if (!matched) {
           continue;
         }
         out.push({
@@ -46,4 +51,3 @@ export async function fetchFromRss(params: {
   }
   return out;
 }
-

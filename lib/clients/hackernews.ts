@@ -15,6 +15,7 @@ const KEYWORDS = ["ai", "artificial intelligence", "semiconductor", "chip", "tec
 export async function fetchFromHackerNews(params: {
   topicName: string;
   query: string;
+  keywords: string[];
   limit: number;
 }): Promise<NormalizedArticle[]> {
   const topRes = await fetch("https://hacker-news.firebaseio.com/v0/topstories.json");
@@ -33,7 +34,11 @@ export async function fetchFromHackerNews(params: {
 
     const lower = title.toLowerCase();
     const q = params.query.toLowerCase();
-    const isMatch = KEYWORDS.some((kw) => lower.includes(kw)) || lower.includes(q.split(" ")[0]);
+    const termMatched = params.keywords.some((kw) => lower.includes(kw.toLowerCase()));
+    const isMatch =
+      KEYWORDS.some((kw) => lower.includes(kw)) ||
+      termMatched ||
+      lower.includes(q.split(" ")[0]);
     if (!isMatch) continue;
 
     results.push({
@@ -53,4 +58,3 @@ export async function fetchFromHackerNews(params: {
   }
   return results;
 }
-

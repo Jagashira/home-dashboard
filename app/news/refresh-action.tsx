@@ -19,7 +19,17 @@ export function NewsRefreshAction() {
         setStatus(`失敗: ${payload.error ?? "unknown error"}`);
         return;
       }
-      setStatus(`取得 ${payload.totalFetched} / 新規 ${payload.inserted}`);
+      const raw = payload.sourceRawCount
+        ? Object.entries(payload.sourceRawCount)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(" ")
+        : "";
+      const ins = payload.sourceInsertedCount
+        ? Object.entries(payload.sourceInsertedCount)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(" ")
+        : "";
+      setStatus(`取得 ${payload.totalFetched} / 新規 ${payload.inserted} / raw[${raw}] / ins[${ins}]`);
       router.refresh();
     } catch (error) {
       setStatus(`失敗: ${error instanceof Error ? error.message : "unknown error"}`);
