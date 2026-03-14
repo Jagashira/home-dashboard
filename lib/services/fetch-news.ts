@@ -2,6 +2,8 @@ import { fetchFromGdelt } from "@/lib/clients/gdelt";
 import { fetchFromHackerNews } from "@/lib/clients/hackernews";
 import { fetchFromNewsApi } from "@/lib/clients/newsapi";
 import { fetchFromRss } from "@/lib/clients/rss";
+import { fetchFromYoutube } from "@/lib/clients/youtube";
+import { fetchFromReddit } from "@/lib/clients/reddit";
 import { fetchArticleContent } from "@/lib/clients/article-fetcher";
 import { insertArticle } from "@/lib/repositories/articles";
 import { finishFetchRun, startFetchRun } from "@/lib/repositories/fetch-runs";
@@ -13,6 +15,7 @@ import { classifyLanguage } from "./classify-language";
 import { normalizeArticles } from "./normalize-article";
 import { summarizeArticle } from "./summarize-article";
 import { NormalizedArticle, Source } from "@/lib/types";
+import { APP_CONFIG } from "@/lib/config";
 
 const QUERY_SYNONYMS: Record<string, string[]> = {
   "半導体": ["semiconductor", "semiconductors", "chip", "chips", "fab", "tsmc", "nvidia"],
@@ -100,6 +103,26 @@ async function collectBySource(params: {
         keywords: params.queryTerms,
         limit: perSourceLimit,
         days: params.days
+      });
+      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+      items.push(...rows);
+    } else if (source.sourceType === "youtube") {
+      const rows = await fetchFromYoutube({
+        topicName: params.topicName,
+        query: params.query,
+        keywords: params.queryTerms,
+        limit: perSourceLimit,
+        days: params.days,
+        apiKey: APP_CONFIG.youtubeApiKey
+      });
+      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+      items.push(...rows);
+    } else if (source.sourceType === "reddit") {
+      const rows = await fetchFromReddit({
+        topicName: params.topicName,
+        query: params.query,
+        keywords: params.queryTerms,
+        limit: perSourceLimit
       });
       sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
       items.push(...rows);

@@ -1,4 +1,4 @@
-export type SourceType = "rss" | "gdelt" | "hackernews" | "newsapi";
+export type SourceType = "rss" | "gdelt" | "hackernews" | "newsapi" | "youtube" | "reddit";
 
 export type NormalizedArticle = {
   topicName: string;
@@ -38,4 +38,3 @@ export type AppSettings = {
   preferJapanese: boolean;
   updatedAt: string;
 };
-

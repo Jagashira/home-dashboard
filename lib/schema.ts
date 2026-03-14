@@ -65,6 +65,7 @@ export function initSchema() {
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_url ON articles(url);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sources_type ON sources(source_type);
     CREATE INDEX IF NOT EXISTS idx_articles_topic_id ON articles(topic_id);
     CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
     CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at);
@@ -87,30 +88,29 @@ export function seedDefaults() {
     insertTopic.run("テック", "テック 日本 最新", 33, 3, now, now);
   }
 
-  const sourcesCount = db.prepare("SELECT COUNT(*) as c FROM sources").get() as { c: number };
-  if (sourcesCount.c === 0) {
-    const insertSource = db.prepare(`
-      INSERT INTO sources(source_type, source_name, is_active, config_json, created_at, updated_at)
-      VALUES (?, ?, 1, ?, ?, ?)
-    `);
-    insertSource.run(
-      "rss",
-      "RSS",
-      JSON.stringify({
-        feeds: [
-          "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
-          "https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf",
-          "https://ascii.jp/rss.xml",
-          "https://jp.techcrunch.com/feed/"
-        ]
-      }),
-      now,
-      now
-    );
-    insertSource.run("gdelt", "GDELT", JSON.stringify({}), now, now);
-    insertSource.run("hackernews", "Hacker News", JSON.stringify({}), now, now);
-    insertSource.run("newsapi", "NewsAPI", JSON.stringify({}), now, now);
-  }
+  const insertSource = db.prepare(`
+    INSERT OR IGNORE INTO sources(source_type, source_name, is_active, config_json, created_at, updated_at)
+    VALUES (?, ?, 1, ?, ?, ?)
+  `);
+  insertSource.run(
+    "rss",
+    "RSS",
+    JSON.stringify({
+      feeds: [
+        "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
+        "https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf",
+        "https://ascii.jp/rss.xml",
+        "https://jp.techcrunch.com/feed/"
+      ]
+    }),
+    now,
+    now
+  );
+  insertSource.run("gdelt", "GDELT", JSON.stringify({}), now, now);
+  insertSource.run("hackernews", "Hacker News", JSON.stringify({}), now, now);
+  insertSource.run("newsapi", "NewsAPI", JSON.stringify({}), now, now);
+  insertSource.run("youtube", "YouTube", JSON.stringify({}), now, now);
+  insertSource.run("reddit", "Reddit", JSON.stringify({}), now, now);
 
   db.prepare(
     `
@@ -120,4 +120,3 @@ export function seedDefaults() {
   `
   ).run(now);
 }
-

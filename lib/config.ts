@@ -20,6 +20,7 @@ export const APP_CONFIG = {
   fetchSecret: process.env.FETCH_SECRET || "",
   openAiApiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API || "",
   newsApiKey: process.env.NEWS_API_KEY || "",
+  youtubeApiKey: process.env.YOUTUBE_API_KEY || "",
   totalRequestedDefault: 30,
   daysDefault: 1
 };
