@@ -1,62 +1,37 @@
 import Link from "next/link";
-import { getFavoriteNews } from "@/lib/news";
-import { SummaryButton } from "@/app/news/summary-button";
-import { SourceBadge } from "@/app/news/source-badge";
-import { FavoriteButton } from "@/app/news/favorite-button";
+import { ArticleCard } from "@/components/news/article-card";
+import { Card } from "@/components/ui/card";
+import { ensureNewsBootstrap } from "@/lib/news-bootstrap";
+import { listArticles } from "@/lib/repositories/articles";
 
-function formatDate(value: Date | null): string {
-  if (!value) {
-    return "Unknown publish time";
-  }
+export const dynamic = "force-dynamic";
 
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(value);
-}
-
-export default async function FavoritesPage() {
-  const favorites = await getFavoriteNews(1, 200);
+export default function FavoritesPage() {
+  ensureNewsBootstrap();
+  const items = listArticles({ onlyFavorite: true, includeHidden: true, limit: 300 });
 
   return (
-    <section className="stack-lg">
-      <section className="news-title-wrap">
-        <h1 className="news-title">Favorites</h1>
-      </section>
-
-      <section className="panel search-head-card">
-        <div className="actions-row">
-          <Link className="button-secondary" href="/news">
-            Newsへ戻る
+    <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
+      <Card>
+        <h1 className="text-2xl font-semibold">お気に入り</h1>
+        <p className="mt-1 text-sm text-slate-600">{items.length} 件</p>
+        <div className="mt-3">
+          <Link href="/news" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            ニュースへ戻る
           </Link>
         </div>
-        <p className="status-text search-result-meta">{favorites.total} items</p>
-      </section>
-
-      {favorites.items.length === 0 ? (
-        <section className="panel">
-          <h3>No favorites yet</h3>
-          <p>ニュース一覧でハートを押すとここに追加されます。</p>
-        </section>
-      ) : null}
-
-      <section className="news-list">
-        {favorites.items.map((item) => (
-          <article className="panel news-card" key={item.id}>
-            <p className="news-meta">{formatDate(item.publishedAt)}</p>
-            <div className="news-card-head">
-              <h3>{item.title}</h3>
-              <FavoriteButton newsItemId={item.id} initialIsFavorite={item.isFavorite} />
-            </div>
-            {item.summary ? <p>{item.summary}</p> : null}
-            <a href={item.url} target="_blank" rel="noreferrer">
-              Read article
-            </a>
-            <SummaryButton title={item.title} summary={item.summary} url={item.url} />
-            <SourceBadge articleUrl={item.url} feedUrl={item.feedUrl} />
-          </article>
+      </Card>
+      <section className="space-y-3">
+        {items.map((article) => (
+          <ArticleCard key={article.id} article={article} />
         ))}
+        {items.length === 0 ? (
+          <Card>
+            <p className="text-sm">ハートを押した記事がここに表示されます。</p>
+          </Card>
+        ) : null}
       </section>
-    </section>
+    </main>
   );
 }
+

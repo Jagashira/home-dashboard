@@ -1,93 +1,62 @@
-import Link from "next/link";
+import { ArticleCard } from "@/components/news/article-card";
+import { NewsHeader } from "@/components/news/news-header";
+import { TopicTabs } from "@/components/news/topic-tabs";
+import { ensureNewsBootstrap } from "@/lib/news-bootstrap";
 import {
-  buildTopicFilterQueryParam,
-  formatRelativeJapaneseTime,
-  getNewsDashboardSettings,
-  getNewsHeaderMeta,
-  listNewsArticles
-} from "@/lib/news-dashboard";
+  listArticles,
+  countBySourceForLatestRun,
+  type ArticleListRow
+} from "@/lib/repositories/articles";
+import { getLatestFetchRun } from "@/lib/repositories/fetch-runs";
+import { listTopics } from "@/lib/repositories/topics";
 import { NewsRefreshAction } from "./refresh-action";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-function getTopicParam(value: string | string[] | undefined) {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
+function getString(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0];
+  return value;
 }
 
-export default async function NewsPage({
-  searchParams
-}: {
-  searchParams?: Promise<SearchParams>;
-}) {
+export default async function NewsPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
+  ensureNewsBootstrap();
   const resolved = searchParams ? await searchParams : {};
-  const topic = getTopicParam(resolved.topic);
-  const settings = await getNewsDashboardSettings();
-  const headerMeta = await getNewsHeaderMeta();
-  const items = await listNewsArticles(topic ?? undefined);
-  const today = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(new Date());
+  const topic = getString(resolved.topic);
+
+  const topics = listTopics();
+  const latestRun = getLatestFetchRun();
+  const items = listArticles({ topic: topic || undefined, limit: 200 });
+
+  const sourceCounts = latestRun ? (countBySourceForLatestRun(latestRun.id) as Array<{ source_type: string; count: number }>) : [];
 
   return (
-    <section className="stack-lg">
-      <section className="panel">
-        <h1 className="news-title">ニュース</h1>
-        <p className="status-text">{today}</p>
-        <p className="status-text">最終更新 {formatRelativeJapaneseTime(headerMeta.latestUpdatedAt)}</p>
-        <p className="status-text">{headerMeta.latestFetched || settings.totalRequested}件取得</p>
+    <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
+      <NewsHeader
+        latestUpdatedAt={latestRun?.finished_at ?? null}
+        totalFetched={latestRun?.total_fetched ?? 0}
+        sourceCounts={sourceCounts}
+      />
+      <div className="flex justify-end">
+        <NewsRefreshAction />
+      </div>
+      <div className="flex justify-end gap-2">
+        <a href="/favorites" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          お気に入り
+        </a>
+        <a href="/news/hidden" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          非表示一覧
+        </a>
+      </div>
+      <TopicTabs topics={topics.map((t) => t.name)} activeTopic={topic} />
 
-        <div className="actions-row">
-          <NewsRefreshAction />
-          <Link className="button-secondary" href="/news/settings">
-            設定
-          </Link>
-        </div>
-      </section>
-
-      <section className="chip-row">
-        <Link className={!topic ? "chip chip-active" : "chip"} href={buildTopicFilterQueryParam(null)}>
-          すべて
-        </Link>
-        {settings.topics.map((item) => (
-          <Link
-            key={item.id}
-            className={topic === item.name ? "chip chip-active" : "chip"}
-            href={buildTopicFilterQueryParam(item.name)}
-          >
-            {item.name}
-          </Link>
+      <section className="space-y-3">
+        {items.map((article: ArticleListRow) => (
+          <ArticleCard key={article.id} article={article} />
         ))}
-        <Link className="chip" href="/news/settings">
-          +追加
-        </Link>
+        {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm">記事がありません。取得を実行してください。</p> : null}
       </section>
-
-      <section className="news-list">
-        {items.map((item) => (
-          <article className="panel news-card" key={item.id}>
-            <h3>{item.title}</h3>
-            <p className="news-meta">
-              {item.source ?? "Unknown"} ・ {formatRelativeJapaneseTime(item.publishedAt)} ・ {item.topic}
-            </p>
-            <pre className="summary-plain">{item.summary ?? "要約なし"}</pre>
-            <div className="actions-row">
-              <a href={item.url} target="_blank" rel="noreferrer">
-                元記事
-              </a>
-              <a href={`/api/news/articles/${item.id}`} target="_blank" rel="noreferrer">
-                詳細
-              </a>
-            </div>
-          </article>
-        ))}
-        {items.length === 0 ? (
-          <section className="panel">
-            <p>記事がありません。ニュース収集を実行してください。</p>
-          </section>
-        ) : null}
-      </section>
-    </section>
+    </main>
   );
 }
-

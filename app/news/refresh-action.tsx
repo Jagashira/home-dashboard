@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export function NewsRefreshAction() {
   const router = useRouter();
@@ -12,13 +13,23 @@ export function NewsRefreshAction() {
     setLoading(true);
     setStatus("収集中...");
     try {
-      const response = await fetch("/api/news/fetch", { method: "POST" });
+      const response = await fetch("/api/fetch", { method: "POST" });
       const payload = await response.json();
       if (!response.ok || payload.ok === false) {
         setStatus(`失敗: ${payload.error ?? "unknown error"}`);
         return;
       }
-      setStatus(`取得 ${payload.totalFetched} / 新規 ${payload.inserted}`);
+      const raw = payload.sourceRawCount
+        ? Object.entries(payload.sourceRawCount)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(" ")
+        : "";
+      const ins = payload.sourceInsertedCount
+        ? Object.entries(payload.sourceInsertedCount)
+            .map(([k, v]) => `${k}:${v}`)
+            .join(" ")
+        : "";
+      setStatus(`取得 ${payload.totalFetched} / 新規 ${payload.inserted} / raw[${raw}] / ins[${ins}]`);
       router.refresh();
     } catch (error) {
       setStatus(`失敗: ${error instanceof Error ? error.message : "unknown error"}`);
@@ -29,11 +40,10 @@ export function NewsRefreshAction() {
 
   return (
     <div className="stack-sm">
-      <button className="button-primary" type="button" onClick={runFetch} disabled={loading}>
+      <Button type="button" onClick={runFetch} disabled={loading}>
         {loading ? "収集中..." : "ニュース取得"}
-      </button>
+      </Button>
       {status ? <p className="meta-text">{status}</p> : null}
     </div>
   );
 }
-

@@ -7,16 +7,20 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "db:init": "tsx scripts/init-db.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "news:refresh": "tsx scripts/refresh-news.ts"
+    "news:refresh": "tsx scripts/refresh-news.ts",
+    "news:fetch": "curl -X POST http://localhost:3000/api/fetch"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
+    "better-sqlite3": "^12.6.2",
     "googleapis": "^148.0.0",
     "next": "^15.2.0",
     "prisma": "^6.5.0",
@@ -25,9 +29,14 @@
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.13.9",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }
