@@ -20,7 +20,14 @@ export async function fetchFromGdelt(params: {
   const response = await fetch(endpoint, { next: { revalidate: 0 } });
   if (!response.ok) return [];
 
-  const payload = (await response.json()) as { articles?: GdeltRow[] };
+  const raw = await response.text();
+  let payload: { articles?: GdeltRow[] } = {};
+  try {
+    payload = JSON.parse(raw) as { articles?: GdeltRow[] };
+  } catch {
+    // GDELT can return plain text errors for some queries; skip this source gracefully.
+    return [];
+  }
   const out: NormalizedArticle[] = [];
   for (const row of payload.articles ?? []) {
     const title = (row.title ?? "").trim();
