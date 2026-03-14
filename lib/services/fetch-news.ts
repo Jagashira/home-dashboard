@@ -18,9 +18,24 @@ import { NormalizedArticle, Source } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/config";
 
 const QUERY_SYNONYMS: Record<string, string[]> = {
-  "半導体": ["semiconductor", "semiconductors", "chip", "chips", "fab", "tsmc", "nvidia"],
+  "半導体": ["semiconductor", "semiconductors", "chiplet", "foundry", "fab", "tsmc", "nvidia", "hbm", "euv"],
   ai: ["artificial intelligence", "genai", "llm", "machine learning", "生成AI", "大規模言語モデル"],
   "テック": ["tech", "technology", "software", "startup", "cloud", "developer"]
+};
+
+const TOPIC_RULES: Record<string, { include: string[]; exclude: string[] }> = {
+  "半導体": {
+    include: ["半導体", "semiconductor", "chiplet", "foundry", "tsmc", "hbm", "euv", "gpu", "cpu", "asml"],
+    exclude: ["potato chips", "banana chips", "snack", "recipe", "ホタテ", "旅行", "クルーズ"]
+  },
+  AI: {
+    include: ["ai", "人工知能", "生成ai", "llm", "machine learning", "chatgpt", "gpt", "anthropic", "gemini"],
+    exclude: ["芸能", "celebrity", "katherine heigl", "recipe"]
+  },
+  "テック": {
+    include: ["tech", "technology", "software", "クラウド", "os", "アプリ", "ガジェット", "developer"],
+    exclude: ["旅行", "グルメ", "レシピ", "football", "soccer", "entertainment"]
+  }
 };
 
 function parseRssFeeds(source: Source) {
@@ -54,6 +69,23 @@ function buildGdeltQuery(terms: string[]) {
     .slice(0, 6)
     .map((term) => `"${term}"`);
   return safe.length > 0 ? safe.join(" OR ") : "\"technology\" OR \"AI\"";
+}
+
+function isRelevantToTopic(topicName: string, text: string) {
+  const rule = TOPIC_RULES[topicName];
+  if (!rule) return true;
+  const lower = text.toLowerCase();
+  const included = rule.include.some((term) => lower.includes(term.toLowerCase()));
+  if (!included) return false;
+  const excluded = rule.exclude.some((term) => lower.includes(term.toLowerCase()));
+  return !excluded;
+}
+
+function selectWithJapanesePriority(items: NormalizedArticle[], limit: number, preferJapanese: boolean) {
+  if (!preferJapanese) return items.slice(0, limit);
+  const ja = items.filter((item) => item.isJapanese);
+  const nonJa = items.filter((item) => !item.isJapanese);
+  return [...ja, ...nonJa].slice(0, limit);
 }
 
 async function collectBySource(params: {
@@ -163,13 +195,14 @@ export async function runFetchNews() {
       for (const [key, value] of Object.entries(collected.sourceRawCount)) {
         sourceRawCount[key] = (sourceRawCount[key] ?? 0) + value;
       }
-      const normalized = normalizeArticles(collected.items, settings.preferJapanese).slice(
-        0,
-        row.count
+      const relevanceFiltered = collected.items.filter((item) =>
+        isRelevantToTopic(row.topic.name, `${item.title}\n${item.content ?? ""}`)
       );
-      totalFetched += normalized.length;
+      const normalized = normalizeArticles(relevanceFiltered, settings.preferJapanese);
+      const selected = selectWithJapanesePriority(normalized, row.count, settings.preferJapanese);
+      totalFetched += selected.length;
 
-      for (const item of normalized) {
+      for (const item of selected) {
         const source = sources.find((s) => s.sourceType === item.sourceType);
         if (!source) continue;
 

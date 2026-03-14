@@ -1,5 +1,5 @@
 import { NormalizedArticle } from "@/lib/types";
-import { guessLanguage, isJapaneseText } from "@/lib/utils/language";
+import { guessLanguage, hasKana, isJapaneseText } from "@/lib/utils/language";
 import { nowIso, toIso } from "@/lib/utils/datetime";
 
 type YoutubeItem = {
@@ -37,6 +37,10 @@ export async function fetchFromYoutube(params: {
     const description = (item.snippet?.description ?? "").trim() || null;
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     const merged = `${title}\n${description ?? ""}`;
+    // User requirement: YouTube is Japanese-only.
+    if (!hasKana(merged) && !/日本/.test(merged)) {
+      continue;
+    }
 
     out.push({
       topicName: params.topicName,
@@ -55,4 +59,3 @@ export async function fetchFromYoutube(params: {
   }
   return out;
 }
-
