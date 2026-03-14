@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { fetchNewsAndSummarize } from "@/lib/news-dashboard";
+import { ensureNewsBootstrap } from "@/lib/news-bootstrap";
+import { runFetchNews } from "@/lib/services/fetch-news";
 
 export async function POST() {
   try {
-    const result = await fetchNewsAndSummarize();
+    ensureNewsBootstrap();
+    const result = await runFetchNews();
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
@@ -12,4 +14,3 @@ export async function POST() {
     );
   }
 }
-

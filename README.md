@@ -1,207 +1,167 @@
-# Home Dashboard (Local-Only)
+# News Aggregator (home-server)
 
-Local-only home dashboard built with Next.js App Router + Prisma + SQLite.
+4つのニュースソース（RSS / GDELT / Hacker News / NewsAPI）を統合し、本文を日本語3行要約して表示する Next.js アプリです。  
+日本語記事を優先しつつ、不足時は英語記事を補完します。Raspberry Pi (ARM) での常用を想定した軽量構成です。
 
-## Features
+## 技術スタック
 
-- Pages
-  - `/news`: Tavily news fetch, Japanese summary, topic settings
-  - `/budget`: expense dashboard + expense/income input
-  - `/tasks`: task CRUD (todo/done, importance/fatigue/minutes/dueDate)
-  - `/planner`: Google Calendar sync, fatigue total, free-time blocks, today's plan
-- SQLite DB under `./data` (easy migration to SSD)
-- Docker Compose support
+- Next.js 15 (App Router, TypeScript)
+- Tailwind CSS
+- SQLite (`better-sqlite3`)
+- OpenAI Responses API (`gpt-4.1-mini`) for summary only
+- RSS parser (`rss-parser`)
 
-## Tech Stack
+## ディレクトリ構成
 
-- Node.js 20+
-- Next.js 15 (App Router)
-- TypeScript
-- Prisma ORM
-- SQLite
-- Tavily API
-- googleapis
+```text
+app/
+  news/
+    page.tsx
+    [id]/page.tsx
+    settings/page.tsx
+  api/
+    news/route.ts
+    news/[id]/route.ts
+    news/settings/route.ts
+    fetch/route.ts
+components/
+  ui/
+  news/
+  settings/
+lib/
+  config.ts
+  db.ts
+  schema.ts
+  types.ts
+  news-bootstrap.ts
+  clients/
+  repositories/
+  services/
+  utils/
+scripts/
+  init-db.ts
+  seed.ts
+  refresh-news.ts
+```
 
-## Setup (Mac / Raspberry Pi)
-
-1. Create env and data directory
+## セットアップ
 
 ```bash
 cp .env.example .env
 mkdir -p data
-```
-
-2. Install deps
-
-```bash
 npm install
-npm run prisma:generate
+npm run db:init
+npm run db:seed
 ```
 
-3. Apply DB schema
+## .env 設定
 
-### Fresh DB (recommended)
+`.env.example`:
 
-```bash
-rm -f data/app.db
-npm run prisma:deploy
+```env
+OPENAI_API_KEY=
+NEWS_API_KEY=
+DATABASE_URL=./data/news-aggregator.db
+APP_BASE_URL=http://localhost:3000
+FETCH_SECRET=
+OPENAI_API=
 ```
 
-### Existing DB (if you already have News/Budget data)
+- `NEWS_API_KEY` が未設定でも動作します（NewsAPIソースは自動スキップ）。
+- `OPENAI_API_KEY` 未設定時は、簡易フォールバック要約を保存します（summary空保存はしません）。
 
-Because older versions created some tables outside Prisma migrations, `prisma migrate deploy` can request baseline.
-In that case, execute the new migration SQL directly:
-
-```bash
-npx prisma db execute --file prisma/migrations/20260306000100_add_calendar_and_tasks/migration.sql --schema prisma/schema.prisma
-npm run prisma:generate
-```
-
-4. Start dev server
+## 開発環境起動
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+- 一覧: `http://localhost:3000/news`
+- 設定: `http://localhost:3000/news/settings`
 
----
-
-## Environment Variables
-
-`.env.example` now includes:
-
-```env
-DATABASE_URL="file:../data/app.db"
-NEWS_FEEDS="..."
-OPENAI_API="..."
-OPENAI_PRICE_INPUT_PER_1M="0.4"
-OPENAI_PRICE_CACHED_INPUT_PER_1M="0.1"
-OPENAI_PRICE_OUTPUT_PER_1M="1.6"
-OPENAI_USD_TO_JPY="150"
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-GOOGLE_REDIRECT_URI=""
-GOOGLE_REFRESH_TOKEN=""
-GOOGLE_CALENDAR_ID="primary"
-```
-
----
-
-## Google Calendar OAuth (refresh token)
-
-1. Create a Google Cloud project
-2. Enable **Google Calendar API**
-3. Create OAuth Client ID (`Web application`)
-4. Set redirect URI (example: `http://localhost:3000/api/auth/google/callback`)
-5. Get authorization code and exchange for refresh token
-
-Simple way with OAuth Playground:
-- Open [OAuth 2.0 Playground](https://developers.google.com/oauthplayground)
-- Gear icon: use your own OAuth credentials
-- Select scope: `https://www.googleapis.com/auth/calendar.readonly`
-- Authorize, then exchange code
-- Copy `refresh_token` into `GOOGLE_REFRESH_TOKEN`
-
-Set all Google envs, then planner sync API can read today events.
-
----
-
-## Planner Logic
-
-- Calendar title parsing supports:
-  - `[WORK] 研究`
-  - `[WORK:60] 修論` (manual fatigue override)
-- Fatigue weights
-  - `WORK 40`, `MEET 55`, `OUT 35`, `HOME 25`, `SPORT 70`, `REST -30`
-- Free-time range: `08:00-24:00`
-- Task allocation rule (simple)
-  - dueDate <= today first
-  - higher importance first
-  - shorter minutes first
-  - split across blocks when needed
-
----
-
-## API
-
-### News
-
-- `GET /api/news`
-- `GET /api/news?topic=AI`
-- `GET /api/news/settings`
-- `PUT /api/news/settings`
-- `POST /api/news/fetch`
-- `GET /api/news/articles/:id`
-
-News collection flow:
-
-1. Read `topic_allocations`
-2. Split total count (default 30) by allocation
-3. Fetch Tavily `topic="news"` `days=1`
-4. De-dup by `articles.url` unique
-5. Summarize each new article with `gpt-4.1-mini`
-6. Store summary in `articles.summary`
-
-### Calendar
-
-- `POST /api/calendar/sync`
-  - Fetch today events from Google Calendar
-  - Parse tag/fatigue
-  - Insert if same `title + startAt` not already stored
-- `GET /api/calendar/today`
-  - `{ events, fatigueTotal }`
-
-### Planner
-
-- `GET /api/planner/free-time`
-  - `{ freeBlocks }`
-- `GET /api/planner/today`
-  - `{ events, fatigueTotal, freeBlocks, tasksTodo, plan }`
-
-### Tasks
-
-- `GET /api/tasks?status=todo|done`
-- `POST /api/tasks`
-- `PATCH /api/tasks/:id`
-- `DELETE /api/tasks/:id`
-
----
-
-## Quick Test Flow (required)
-
-1. Open `/tasks`
-2. Add task (e.g. title `洗濯`, minutes `30`, importance `3`, fatigue `20`)
-3. Open `/planner`
-4. Click **Google予定を同期**
-5. Confirm
-   - today events list shows
-   - fatigue total updates
-   - free blocks are shown
-   - task is allocated in plan
-
----
-
-## Docker Compose
+## Docker 起動
 
 ```bash
 docker compose up -d --build
 docker compose logs -f app
 ```
 
-App is exposed on host port `3000`.
+- コンテナ名: `news-aggregator`
+- 公開ポート: `3000`
+- DB永続化: `./data` マウント
 
-## Security
+## DB初期化
 
-- Local network / Tailscale only
-- Do not expose directly to public internet
-- `.env` is gitignored
+```bash
+npm run db:init
+```
 
----
+## seed 実行
 
-## News Dashboard
+```bash
+npm run db:seed
+```
 
-- UI: `http://localhost:3000/news`
-- Settings: `http://localhost:3000/news/settings`
-- Manual fetch: `POST /api/news/fetch`
-- Daily cron: `npm run news:refresh`
+初期 topic:
+- 半導体 (`半導体 日本 最新`) 34%
+- AI (`AI 日本 最新`) 33%
+- テック (`テック 日本 最新`) 33%
+
+初期 source:
+- RSS
+- GDELT
+- Hacker News
+- NewsAPI
+
+## cron から /api/fetch を叩く例
+
+毎朝8時:
+
+```cron
+0 8 * * * curl -X POST "http://127.0.0.1:3000/api/fetch?secret=YOUR_FETCH_SECRET" >/tmp/news-fetch.log 2>&1
+```
+
+`FETCH_SECRET` を設定した場合は `x-fetch-secret` ヘッダまたは `?secret=` が必須です。
+
+## 各ニュースソースの役割
+
+- RSS: 日本語一次ソース中心（安定運用の土台）
+- GDELT: 海外新着探索（リアルタイム補完）
+- Hacker News: AI/テック話題性補強（score利用）
+- NewsAPI: 補助ソース（無料版24時間遅延前提）
+
+## API一覧
+
+- `GET /api/news?topic=&sourceType=&date=&limit=`
+- `GET /api/news/:id`
+- `GET /api/settings`
+- `PUT /api/settings`
+- `POST /api/fetch`
+
+## 収集ロジック概要
+
+1. `topics` から有効topicと配分を取得
+2. 合計30件になるよう配分
+3. 各ソースから取得し共通型へ正規化
+4. URL重複除去
+5. 日本語優先ソート
+6. 本文不足時はURL先本文を取得
+7. OpenAIで日本語3行要約
+8. `articles` 保存、`fetch_runs` 更新
+
+## Raspberry Pi 運用時の注意点
+
+- Node 20 LTS を使用
+- swap不足時は build が落ちるため、必要なら swap を増やす
+- `npm run dev` より本番は `npm run build && npm run start` 推奨
+- cron は同時実行を避ける（例: 1日1回）
+- `.db` は SSD 側へ移すと寿命と性能が安定
+
+## 今後の拡張案
+
+- 記事本文抽出の精度改善（Readability系）
+- ソースごとの重み設定
+- 要約キャッシュの再利用
+- 既読/お気に入り管理
+- 週次ダイジェスト生成
+

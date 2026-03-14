@@ -2,20 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getArticleById } from "@/lib/repositories/articles";
 import { ensureNewsBootstrap } from "@/lib/news-bootstrap";
 
-type Params = {
-  params: Promise<{ id: string }>;
-};
+type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
     ensureNewsBootstrap();
-    const resolved = await params;
-    const id = Number(resolved.id);
-    if (!Number.isFinite(id) || id <= 0) {
+    const { id } = await params;
+    const articleId = Number(id);
+    if (!Number.isFinite(articleId) || articleId <= 0) {
       return NextResponse.json({ ok: false, error: "Invalid id" }, { status: 400 });
     }
-
-    const article = getArticleById(id);
+    const article = getArticleById(articleId);
     if (!article) {
       return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
     }
@@ -27,3 +24,4 @@ export async function GET(_request: NextRequest, { params }: Params) {
     );
   }
 }
+

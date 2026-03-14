@@ -39,8 +39,8 @@ export async function PUT(request: NextRequest) {
 
     if (payload.settings) {
       updateSettings({
-        totalRequested: Number(payload.settings.totalRequested ?? 30),
-        days: Number(payload.settings.days ?? 1),
+        totalRequested: Math.max(1, Math.min(200, Number(payload.settings.totalRequested ?? 30))),
+        days: Math.max(1, Math.min(7, Number(payload.settings.days ?? 1))),
         preferJapanese: Boolean(payload.settings.preferJapanese ?? true)
       });
     }
@@ -62,9 +62,5 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-export async function PATCH(request: NextRequest) {
-  return PUT(request);
 }
 

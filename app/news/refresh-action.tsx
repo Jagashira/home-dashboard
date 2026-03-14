@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export function NewsRefreshAction() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export function NewsRefreshAction() {
     setLoading(true);
     setStatus("収集中...");
     try {
-      const response = await fetch("/api/news/fetch", { method: "POST" });
+      const response = await fetch("/api/fetch", { method: "POST" });
       const payload = await response.json();
       if (!response.ok || payload.ok === false) {
         setStatus(`失敗: ${payload.error ?? "unknown error"}`);
@@ -29,11 +30,10 @@ export function NewsRefreshAction() {
 
   return (
     <div className="stack-sm">
-      <button className="button-primary" type="button" onClick={runFetch} disabled={loading}>
+      <Button type="button" onClick={runFetch} disabled={loading}>
         {loading ? "収集中..." : "ニュース取得"}
-      </button>
+      </Button>
       {status ? <p className="meta-text">{status}</p> : null}
     </div>
   );
 }
-
