@@ -49,6 +49,8 @@ export type ElectricityDetailDashboard = BillingDetailDashboard & {
   selectedMonth: string | null;
   usageSummary: Awaited<ReturnType<typeof fetchElectricityUsageSummary>> | null;
   usageChart: BillingLinePoint[];
+  dailyUsageChart: BillingLinePoint[];
+  hourlyUsageChart: BillingLinePoint[];
   usagePoints: ElectricityUsagePoint[];
 };
 
@@ -297,6 +299,44 @@ function formatUsageLabel(value: string) {
   return `${month}/${day} ${hour}:${minute}`;
 }
 
+function aggregateDailyUsage(points: ElectricityUsagePoint[]) {
+  const totals = new Map<string, number>();
+
+  for (const point of points) {
+    const date = new Date(point.measured_at);
+    if (Number.isNaN(date.getTime())) continue;
+    const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+    totals.set(label, (totals.get(label) ?? 0) + point.usage_kwh);
+  }
+
+  return [...totals.entries()].map(([label, value]) => ({
+    label,
+    value
+  }));
+}
+
+function aggregateHourlyUsage(points: ElectricityUsagePoint[]) {
+  const totals = new Map<number, { total: number; count: number }>();
+
+  for (const point of points) {
+    const date = new Date(point.measured_at);
+    if (Number.isNaN(date.getTime())) continue;
+    const hour = date.getHours();
+    const current = totals.get(hour) ?? { total: 0, count: 0 };
+    current.total += point.usage_kwh;
+    current.count += 1;
+    totals.set(hour, current);
+  }
+
+  return Array.from({ length: 24 }, (_, hour) => {
+    const current = totals.get(hour);
+    return {
+      label: `${String(hour).padStart(2, "0")}:00`,
+      value: current ? current.total / current.count : 0
+    };
+  });
+}
+
 export async function getElectricityDashboard(selectedMonth?: string | null): Promise<ElectricityDetailDashboard> {
   const [history, monthsResponse] = await Promise.all([
     fetchBillingHistory({
@@ -345,6 +385,8 @@ export async function getElectricityDashboard(selectedMonth?: string | null): Pr
     selectedMonth: activeMonth,
     usageSummary,
     usageChart,
+    dailyUsageChart: aggregateDailyUsage(usagePoints),
+    hourlyUsageChart: aggregateHourlyUsage(usagePoints),
     usagePoints
   };
 }
