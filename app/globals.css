@@ -1150,6 +1150,10 @@ main {
   font-family: "Sora", "Avenir Next", "Segoe UI", sans-serif;
 }
 
+.billing-y-label {
+  text-anchor: start;
+}
+
 .billing-line {
   fill: none;
   stroke: #0f766e;
@@ -1233,6 +1237,15 @@ main {
 
   .billing-stat-pill strong {
     font-size: 0.86rem;
+  }
+
+  .billing-chart-card {
+    padding: 1rem 0.9rem;
+  }
+
+  .billing-y-label,
+  .billing-x-label {
+    font-size: 10px;
   }
 
   .billing-table {
