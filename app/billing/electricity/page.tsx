@@ -5,7 +5,7 @@ import {
   ElectricityUsagePanel,
   SimpleLineChart
 } from "../billing-ui";
-import { formatKwh, formatYen, getElectricityDashboard } from "@/lib/home-billing";
+import { getElectricityDashboard } from "@/lib/home-billing";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +44,7 @@ export default async function ElectricityBillingPage({
           title="月別請求推移"
           subtitle="全月の電気代を表示"
           points={dashboard.amountChart}
-          formatValue={formatYen}
+          valueFormat="currency"
         />
 
         <section className="panel billing-switch-row">
@@ -76,10 +76,10 @@ export default async function ElectricityBillingPage({
           title="使用量推移"
           subtitle={dashboard.selectedMonth ? `${dashboard.selectedMonth} の使用量` : "使用量データなし"}
           points={dashboard.usageChart}
-          formatValue={(value) => `${formatKwh(value)} kWh`}
+          valueFormat="kwh"
         />
 
-        <BillingHistoryTable title="全月一覧" records={dashboard.records} showUsagePeriod />
+        <BillingHistoryTable title="全月一覧" records={dashboard.records} />
       </section>
     );
   } catch (error) {

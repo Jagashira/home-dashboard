@@ -1,5 +1,5 @@
 import { BillingBackLink, BillingHistoryTable, SimpleLineChart } from "../billing-ui";
-import { formatYen, getInternetDashboard } from "@/lib/home-billing";
+import { getInternetDashboard } from "@/lib/home-billing";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +25,10 @@ export default async function InternetBillingPage() {
           title="月別請求推移"
           subtitle="全月の請求額を表示"
           points={dashboard.amountChart}
-          formatValue={formatYen}
+          valueFormat="currency"
         />
 
-        <BillingHistoryTable title="全月一覧" records={dashboard.records} showUsagePeriod />
+        <BillingHistoryTable title="全月一覧" records={dashboard.records} />
       </section>
     );
   } catch (error) {

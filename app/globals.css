@@ -63,6 +63,12 @@ main {
   gap: 1rem;
 }
 
+.stack-lg > *,
+.stack-md > *,
+.stack-sm > * {
+  min-width: 0;
+}
+
 .stack-md {
   display: grid;
   gap: 0.75rem;
@@ -80,6 +86,7 @@ main {
   background: var(--card);
   backdrop-filter: blur(12px);
   box-shadow: 0 6px 18px rgba(33, 38, 57, 0.06);
+  min-width: 0;
 }
 
 .hero h2 {
@@ -1079,6 +1086,24 @@ main {
   gap: 0.9rem;
 }
 
+.billing-chart-stage {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.billing-chart-axis-fixed {
+  position: relative;
+  z-index: 1;
+}
+
+.billing-chart-axis-svg {
+  width: 64px;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
 .billing-chart-card {
   overflow: hidden;
 }
@@ -1122,7 +1147,11 @@ main {
 
 .billing-chart-scroll {
   width: 100%;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 .billing-chart {
@@ -1178,6 +1207,7 @@ main {
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
   align-items: center;
+  min-width: 0;
 }
 
 .billing-table-card h3 {
@@ -1209,6 +1239,10 @@ main {
   text-transform: uppercase;
 }
 
+.billing-col-desktop {
+  display: table-cell;
+}
+
 .billing-switch-row {
   display: grid;
   gap: 0.5rem;
@@ -1227,28 +1261,82 @@ main {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
   }
 
   .billing-stat-pill {
     min-width: 0;
-    padding: 0.55rem 0.6rem;
-    border-radius: 12px;
+    padding: 0.38rem 0.42rem;
+    border-radius: 10px;
+  }
+
+  .billing-stat-pill span {
+    font-size: 0.62rem;
+    margin-bottom: 0.08rem;
   }
 
   .billing-stat-pill strong {
-    font-size: 0.86rem;
+    font-size: 0.72rem;
+    line-height: 1.15;
   }
 
   .billing-chart-card {
-    padding: 1rem 0.9rem;
+    padding: 0.95rem 0.78rem;
+  }
+
+  .billing-chart-stage {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .billing-chart-axis-svg {
+    width: 48px;
+  }
+
+  .billing-chart-scroll {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .billing-chart {
+    width: 640px;
+    max-width: none;
   }
 
   .billing-y-label,
   .billing-x-label {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .billing-table {
-    min-width: 460px;
+    min-width: 100%;
+    font-size: 0.82rem;
+  }
+
+  .billing-table th,
+  .billing-table td {
+    padding: 0.62rem 0.45rem;
+  }
+
+  .billing-col-desktop {
+    display: none;
+  }
+
+  .billing-chart-foot {
+    gap: 0.3rem 0.8rem;
+  }
+
+  .billing-chart-foot .meta-text {
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 641px) {
+  .billing-chart-scroll {
+    overflow-x: hidden;
+  }
+
+  .billing-chart {
+    max-width: 100%;
   }
 }

@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { BillingRecord } from "@/lib/home-billing-api";
 import {
@@ -8,6 +11,8 @@ import {
   formatKwh,
   formatYen
 } from "@/lib/home-billing";
+
+type ValueFormatMode = "currency" | "kwh" | "number";
 
 type PlotPoint = BillingLinePoint & {
   x: number;
@@ -74,6 +79,18 @@ function buildYAxisTicks(min: number, max: number, count: number) {
   });
 }
 
+function formatChartValue(value: number, mode: ValueFormatMode) {
+  if (mode === "currency") {
+    return formatYen(value);
+  }
+  if (mode === "kwh") {
+    return `${new Intl.NumberFormat("ja-JP", {
+      maximumFractionDigits: value >= 100 ? 0 : 1
+    }).format(value)} kWh`;
+  }
+  return value.toFixed(1);
+}
+
 function MetricCard({
   label,
   value,
@@ -130,21 +147,23 @@ export function SimpleLineChart({
   title,
   subtitle,
   points,
-  formatValue,
+  valueFormat = "number",
   emptyText = "表示データがありません"
 }: {
   title: string;
   subtitle?: string;
   points: BillingLinePoint[];
-  formatValue?: (value: number) => string;
+  valueFormat?: ValueFormatMode;
   emptyText?: string;
 }) {
-  const width = 720;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const yAxisWidth = 64;
+  const plotWidth = Math.max(720, points.length * 56);
   const height = 328;
-  const paddingX = 68;
+  const paddingX = 18;
   const paddingTop = 20;
   const paddingBottom = 56;
-  const formatter = formatValue ?? ((value: number) => value.toFixed(1));
+  const formatter = (value: number) => formatChartValue(value, valueFormat);
   const stats = points.length
     ? {
         latest: points[points.length - 1],
@@ -153,12 +172,18 @@ export function SimpleLineChart({
         min: points.reduce((best, current) => (current.value < best.value ? current : best), points[0])
       }
     : null;
-  const plot = points.length ? createPlotPoints(points, width, height, paddingX, paddingTop, paddingBottom) : null;
+  const plot = points.length ? createPlotPoints(points, plotWidth, height, paddingX, paddingTop, paddingBottom) : null;
   const yTicks = plot ? buildYAxisTicks(plot.min, plot.max, 4) : [];
   const xTickIndexes = pickTickIndexes(points.length, points.length <= 6 ? points.length : 6);
   const linePath = plot && plot.points.length > 1 ? buildPath(plot.points) : "";
-  const areaPath = plot ? buildAreaPath(plot.points, width, height, paddingBottom) : "";
+  const areaPath = plot ? buildAreaPath(plot.points, plotWidth, height, paddingBottom) : "";
   const gradientId = `billing-line-fill-${title.replace(/[^a-zA-Z0-9_-]/g, "-")}-${points.length}`;
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollLeft = Math.max(0, element.scrollWidth - element.clientWidth);
+  }, [points.length, title]);
 
   return (
     <section className="panel budget-chart-card billing-chart-card">
@@ -188,71 +213,92 @@ export function SimpleLineChart({
         <p className="status-text">{emptyText}</p>
       ) : (
         <div className="billing-chart-wrap">
-          <div className="billing-chart-scroll">
-            <svg viewBox={`0 0 ${width} ${height}`} className="billing-chart" role="img" aria-label={title}>
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#0f766e" stopOpacity="0.22" />
-                  <stop offset="100%" stopColor="#0f766e" stopOpacity="0.03" />
-                </linearGradient>
-              </defs>
-              {plot
-                ? yTicks.map((tick, index) => {
-                    const y = paddingTop + plot.innerHeight - ((tick - plot.min) / plot.range) * plot.innerHeight;
-                    return (
-                      <g key={`${title}-ytick-${index}`}>
-                        <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} className="billing-grid-line" />
-                        <text x={paddingX - 8} y={y + 4} className="billing-y-label">
-                          {formatter(tick)}
-                        </text>
+          <div className="billing-chart-stage">
+            <div className="billing-chart-axis-fixed" aria-hidden="true">
+              <svg viewBox={`0 0 ${yAxisWidth} ${height}`} className="billing-chart-axis-svg">
+                {plot
+                  ? yTicks.map((tick, index) => {
+                      const y = paddingTop + plot.innerHeight - ((tick - plot.min) / plot.range) * plot.innerHeight;
+                      return (
+                        <g key={`${title}-ytick-fixed-${index}`}>
+                          <text x={yAxisWidth - 8} y={y + 4} className="billing-y-label">
+                            {formatter(tick)}
+                          </text>
+                        </g>
+                      );
+                    })
+                  : null}
+              </svg>
+            </div>
+            <div className="billing-chart-scroll" ref={scrollRef}>
+              <svg viewBox={`0 0 ${plotWidth} ${height}`} className="billing-chart" role="img" aria-label={title}>
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0f766e" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#0f766e" stopOpacity="0.03" />
+                  </linearGradient>
+                </defs>
+                {plot
+                  ? yTicks.map((tick, index) => {
+                      const y = paddingTop + plot.innerHeight - ((tick - plot.min) / plot.range) * plot.innerHeight;
+                      return (
+                        <g key={`${title}-ytick-${index}`}>
+                          <line x1={paddingX} y1={y} x2={plotWidth - paddingX} y2={y} className="billing-grid-line" />
+                        </g>
+                      );
+                    })
+                  : null}
+                <line
+                  x1={paddingX}
+                  y1={height - paddingBottom}
+                  x2={plotWidth - paddingX}
+                  y2={height - paddingBottom}
+                  className="billing-axis"
+                />
+                {areaPath ? <path d={areaPath} className="billing-area" fill={`url(#${gradientId})`} /> : null}
+                {linePath ? <path d={linePath} className="billing-line" /> : null}
+                {plot
+                  ? plot.points.map((point, index) => (
+                      <g key={`${title}-${point.label}-${index}`}>
+                        <circle cx={point.x} cy={point.y} r="4.5" className="billing-dot" />
+                        <title>{`${point.label}: ${formatter(point.value)}`}</title>
                       </g>
-                    );
-                  })
-                : null}
-              <line x1={paddingX} y1={height - paddingBottom} x2={width - paddingX} y2={height - paddingBottom} className="billing-axis" />
-              {areaPath ? <path d={areaPath} className="billing-area" fill={`url(#${gradientId})`} /> : null}
-              {linePath ? <path d={linePath} className="billing-line" /> : null}
-              {plot
-                ? plot.points.map((point, index) => (
-                    <g key={`${title}-${point.label}-${index}`}>
-                      <circle cx={point.x} cy={point.y} r="4.5" className="billing-dot" />
-                      <title>{`${point.label}: ${formatter(point.value)}`}</title>
-                    </g>
-                  ))
-                : null}
-              {plot
-                ? xTickIndexes.map((pointIndex) => {
-                    const point = plot.points[pointIndex];
-                    return (
-                      <g key={`${title}-xlabel-${pointIndex}`}>
-                        <line
-                          x1={point.x}
-                          y1={height - paddingBottom}
-                          x2={point.x}
-                          y2={height - paddingBottom + 8}
-                          className="billing-axis"
-                        />
-                        <text
-                          x={
-                            pointIndex === 0
-                              ? point.x + 2
-                              : pointIndex === points.length - 1
-                                ? point.x - 2
-                                : point.x
-                          }
-                          y={height - paddingBottom + 22}
-                          textAnchor={
-                            pointIndex === 0 ? "start" : pointIndex === points.length - 1 ? "end" : "middle"
-                          }
-                          className="billing-x-label"
-                        >
-                          {point.label}
-                        </text>
-                      </g>
-                    );
-                  })
-                : null}
-            </svg>
+                    ))
+                  : null}
+                {plot
+                  ? xTickIndexes.map((pointIndex) => {
+                      const point = plot.points[pointIndex];
+                      return (
+                        <g key={`${title}-xlabel-${pointIndex}`}>
+                          <line
+                            x1={point.x}
+                            y1={height - paddingBottom}
+                            x2={point.x}
+                            y2={height - paddingBottom + 8}
+                            className="billing-axis"
+                          />
+                          <text
+                            x={
+                              pointIndex === 0
+                                ? point.x + 2
+                                : pointIndex === points.length - 1
+                                  ? point.x - 2
+                                  : point.x
+                            }
+                            y={height - paddingBottom + 22}
+                            textAnchor={
+                              pointIndex === 0 ? "start" : pointIndex === points.length - 1 ? "end" : "middle"
+                            }
+                            className="billing-x-label"
+                          >
+                            {point.label}
+                          </text>
+                        </g>
+                      );
+                    })
+                  : null}
+              </svg>
+            </div>
           </div>
           {stats ? (
             <div className="billing-chart-foot">
@@ -292,8 +338,8 @@ export function BillingHistoryTable({
               <tr>
                 <th>月</th>
                 <th>金額</th>
-                {showUsagePeriod ? <th>利用期間</th> : null}
-                <th>事業者</th>
+                {showUsagePeriod ? <th className="billing-col-desktop">利用期間</th> : null}
+                <th className="billing-col-desktop">事業者</th>
               </tr>
             </thead>
             <tbody>
@@ -301,8 +347,8 @@ export function BillingHistoryTable({
                 <tr key={record.id}>
                   <td>{record.billing_month}</td>
                   <td>{formatYen(record.total_amount)}</td>
-                  {showUsagePeriod ? <td>{record.usage_period ?? "-"}</td> : null}
-                  <td>{record.provider_name}</td>
+                  {showUsagePeriod ? <td className="billing-col-desktop">{record.usage_period ?? "-"}</td> : null}
+                  <td className="billing-col-desktop">{record.provider_name}</td>
                 </tr>
               ))}
             </tbody>
