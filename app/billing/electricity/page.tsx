@@ -4,6 +4,7 @@ import {
   BillingHistoryTable,
   SimpleLineChart
 } from "../billing-ui";
+import { ProviderRefreshButton } from "../provider-refresh-button";
 import { getElectricityDashboard } from "@/lib/home-billing";
 
 export const dynamic = "force-dynamic";
@@ -66,8 +67,12 @@ export default async function ElectricityBillingPage({
             <p className="label-caption">ELECTRICITY BILLING</p>
             <h1 className="budget-title">{dashboard.title}</h1>
             <p className="status-text">{dashboard.description}</p>
+            {dashboard.records.length === 0 && dashboard.months.length === 0 ? (
+              <p className="error-text">まだ電気データがありません。更新ボタンから再取得できます。</p>
+            ) : null}
             <div className="actions-row">
               <BillingBackLink />
+              <ProviderRefreshButton provider="electricity" />
             </div>
           </div>
         </section>

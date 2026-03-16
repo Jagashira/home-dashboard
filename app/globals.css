@@ -1017,6 +1017,10 @@ main {
     min-height: 44px;
   }
 
+  .billing-refresh-status {
+    max-width: none;
+  }
+
   .task-inline-edit input {
     width: 70px;
   }
@@ -1250,6 +1254,16 @@ main {
 .billing-switch-row {
   display: grid;
   gap: 0.5rem;
+}
+
+.billing-refresh-control {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.billing-refresh-status {
+  margin: 0;
+  max-width: 320px;
 }
 
 .billing-subscription-hero {

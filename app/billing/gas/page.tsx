@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BillingBackLink, SimpleLineChart } from "../billing-ui";
+import { ProviderRefreshButton } from "../provider-refresh-button";
 import { formatGasUsage, formatYen, getGasDashboard } from "@/lib/home-billing";
 
 export const dynamic = "force-dynamic";
@@ -44,8 +45,12 @@ export default async function GasBillingPage({
             <p className="label-caption">GAS BILLING</p>
             <h1 className="budget-title">{dashboard.title}</h1>
             <p className="status-text">{dashboard.description}</p>
+            {dashboard.items.length === 0 ? (
+              <p className="error-text">まだガスデータがありません。更新ボタンから再取得できます。</p>
+            ) : null}
             <div className="actions-row">
               <BillingBackLink />
+              <ProviderRefreshButton provider="gas" />
             </div>
           </div>
         </section>
