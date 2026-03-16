@@ -12,7 +12,7 @@ import {
   formatYen
 } from "@/lib/home-billing";
 
-type ValueFormatMode = "currency" | "kwh" | "number";
+type ValueFormatMode = "currency" | "kwh" | "number" | "gas";
 
 type PlotPoint = BillingLinePoint & {
   x: number;
@@ -87,6 +87,11 @@ function formatChartValue(value: number, mode: ValueFormatMode) {
     return `${new Intl.NumberFormat("ja-JP", {
       maximumFractionDigits: value >= 100 ? 0 : 1
     }).format(value)} kWh`;
+  }
+  if (mode === "gas") {
+    return `${new Intl.NumberFormat("ja-JP", {
+      maximumFractionDigits: value >= 100 ? 0 : 1
+    }).format(value)} m3`;
   }
   return value.toFixed(1);
 }

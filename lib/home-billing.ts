@@ -1,17 +1,23 @@
 import {
   BillingRecord,
   ElectricityUsagePoint,
+  GasMonthlyUsage,
   fetchBillingHistory,
   fetchElectricityUsageDaily,
   fetchElectricityUsageHourly,
   fetchElectricityUsageMonths,
   fetchElectricityUsageSummary,
-  fetchElectricityUsageTimeSeries
+  fetchElectricityUsageTimeSeries,
+  fetchGasMonthlyUsage
 } from "@/lib/home-billing-api";
+import { getFixedCostDashboard } from "@/lib/fixed-costs";
+import { getSubscriptionDashboard } from "@/lib/subscriptions";
+import { getWaterDashboard } from "@/lib/water-costs";
 
 export const BILLING_ROUTE = "/billing";
 export const INTERNET_PROVIDER = "softbank_internet";
 export const ELECTRICITY_PROVIDER = "hepco_electricity";
+export const GAS_PROVIDER = "mitsuuroko_gas";
 
 export type BillingCategoryKey =
   | "gas"
@@ -55,6 +61,27 @@ export type ElectricityDetailDashboard = BillingDetailDashboard & {
   hourlyUsageChart: BillingLinePoint[];
 };
 
+export type GasDetailDashboard = {
+  title: string;
+  description: string;
+  items: GasMonthlyUsage[];
+  latestItem: GasMonthlyUsage | null;
+  usageChart: BillingLinePoint[];
+  chargeChart: BillingLinePoint[];
+};
+
+export type WaterDetailDashboard = {
+  title: string;
+  description: string;
+  items: ReturnType<typeof getWaterDashboard>["activeEntries"];
+  latestItem: ReturnType<typeof getWaterDashboard>["latestEntry"];
+  previousItem: ReturnType<typeof getWaterDashboard>["previousEntry"];
+  monthlyEquivalent: number;
+  yearlyEquivalent: number;
+  amountChart: BillingLinePoint[];
+  templates: ReturnType<typeof getWaterDashboard>["templates"];
+};
+
 type CategoryMeta = {
   title: string;
   description: string;
@@ -64,19 +91,23 @@ type CategoryMeta = {
 const CATEGORY_META: Record<BillingCategoryKey, CategoryMeta> = {
   gas: {
     title: "ガス代",
-    description: "ガス利用料"
+    description: "ガス利用料",
+    href: `${BILLING_ROUTE}/gas`
   },
   water: {
     title: "水道代",
-    description: "上下水道料金"
+    description: "上下水道料金",
+    href: `${BILLING_ROUTE}/water`
   },
   rent: {
     title: "家賃",
-    description: "賃貸・住宅費"
+    description: "賃貸・住宅費",
+    href: `${BILLING_ROUTE}/rent`
   },
   parking: {
     title: "駐車代",
-    description: "駐車場・車庫費用"
+    description: "駐車場・車庫費用",
+    href: `${BILLING_ROUTE}/parking`
   },
   internet: {
     title: "インターネット代",
@@ -90,7 +121,8 @@ const CATEGORY_META: Record<BillingCategoryKey, CategoryMeta> = {
   },
   subscription: {
     title: "サブスク",
-    description: "定期課金サービス"
+    description: "定期課金サービス",
+    href: `${BILLING_ROUTE}/subscription`
   },
   other: {
     title: "その他",
@@ -148,14 +180,21 @@ function formatMonthLabel(value: string) {
 
 export function formatYen(value: number | null) {
   if (value === null) return "-";
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
+  const absolute = Math.abs(value);
+  const prefix = value < 0 ? "-" : "";
+  return `${prefix}¥${new Intl.NumberFormat("ja-JP", {
     maximumFractionDigits: 0
-  }).format(value);
+  }).format(absolute)}`;
 }
 
 export function formatKwh(value: number | null) {
+  if (value === null) return "-";
+  return new Intl.NumberFormat("ja-JP", {
+    maximumFractionDigits: value >= 100 ? 0 : 1
+  }).format(value);
+}
+
+export function formatGasUsage(value: number | null) {
   if (value === null) return "-";
   return new Intl.NumberFormat("ja-JP", {
     maximumFractionDigits: value >= 100 ? 0 : 1
@@ -230,6 +269,74 @@ function buildCategorySummary(key: BillingCategoryKey, records: BillingRecord[])
   };
 }
 
+function createSyntheticBillingRecord({
+  id,
+  serviceType,
+  providerName,
+  billingMonth,
+  totalAmount,
+  sourceUrl
+}: {
+  id: number;
+  serviceType: string;
+  providerName: string;
+  billingMonth: string;
+  totalAmount: number;
+  sourceUrl: string;
+}): BillingRecord {
+  return {
+    id,
+    service_type: serviceType,
+    provider_name: providerName,
+    account_id: "manual",
+    billing_month: billingMonth,
+    total_amount: totalAmount,
+    currency: "JPY",
+    usage_period: null,
+    payment_status: "manual",
+    detail_url: null,
+    fetched_at: new Date().toISOString(),
+    source_url: sourceUrl,
+    status: "manual",
+    raw_data_json: null,
+    raw_snapshot_path: null,
+    screenshot_path: null,
+    error_message: null
+  };
+}
+
+function formatManualBillingMonth(date: Date) {
+  return `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, "0")}月`;
+}
+
+function shiftMonth(date: Date, offset: number) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+}
+
+function buildRecurringManualRecords(key: BillingCategoryKey, providerName: string, totalAmount: number) {
+  const lastMonth = shiftMonth(new Date(), -1);
+  const previousMonth = shiftMonth(new Date(), -2);
+
+  return [
+    createSyntheticBillingRecord({
+      id: Number(`91${CATEGORY_ORDER.indexOf(key)}01`),
+      serviceType: key,
+      providerName,
+      billingMonth: formatManualBillingMonth(lastMonth),
+      totalAmount,
+      sourceUrl: "manual://billing"
+    }),
+    createSyntheticBillingRecord({
+      id: Number(`91${CATEGORY_ORDER.indexOf(key)}02`),
+      serviceType: key,
+      providerName,
+      billingMonth: formatManualBillingMonth(previousMonth),
+      totalAmount,
+      sourceUrl: "manual://billing"
+    })
+  ];
+}
+
 export async function getBillingCategorySummaries() {
   const history = await fetchBillingHistory({ limit: 240 });
   const grouped = new Map<BillingCategoryKey, BillingRecord[]>();
@@ -242,6 +349,31 @@ export async function getBillingCategorySummaries() {
     const key = recordToCategory(record);
     grouped.get(key)?.push(record);
   }
+
+  const rent = getFixedCostDashboard("rent");
+  const parking = getFixedCostDashboard("parking");
+  const subscriptions = getSubscriptionDashboard();
+  const water = getWaterDashboard();
+
+  grouped.set("rent", buildRecurringManualRecords("rent", "manual_rent", Math.round(rent.monthlyTotal)));
+  grouped.set("parking", buildRecurringManualRecords("parking", "manual_parking", Math.round(parking.monthlyTotal)));
+  grouped.set(
+    "subscription",
+    buildRecurringManualRecords("subscription", "manual_subscription", Math.round(subscriptions.monthlyTotal))
+  );
+  grouped.set(
+    "water",
+    water.activeEntries.map((entry, index) =>
+      createSyntheticBillingRecord({
+        id: Number(`92${index + 1}`),
+        serviceType: "water",
+        providerName: "manual_water",
+        billingMonth: entry.billingMonth,
+        totalAmount: entry.amount,
+        sourceUrl: "manual://water"
+      })
+    )
+  );
 
   return CATEGORY_ORDER.map((key) => buildCategorySummary(key, grouped.get(key) ?? []));
 }
@@ -268,6 +400,59 @@ export async function getInternetDashboard(): Promise<BillingDetailDashboard> {
     description: "固定回線の請求推移を月別に確認します。",
     records,
     amountChart: buildAmountChart(records)
+  };
+}
+
+export async function getGasDashboard(): Promise<GasDetailDashboard> {
+  const response = await fetchGasMonthlyUsage({
+    providerName: GAS_PROVIDER,
+    limit: 36
+  });
+
+  const items = [...response.items].sort((a, b) => {
+    const aMonth = parseBillingMonth(a.billing_month)?.sortValue ?? 0;
+    const bMonth = parseBillingMonth(b.billing_month)?.sortValue ?? 0;
+    return bMonth - aMonth;
+  });
+
+  return {
+    title: "ガス代",
+    description: "月別のガス使用量と買上額を確認します。",
+    items,
+    latestItem: items[0] ?? null,
+    usageChart: [...items]
+      .reverse()
+      .map((item) => ({
+        label: formatMonthLabel(item.billing_month),
+        value: item.usage_value ?? 0
+      })),
+    chargeChart: [...items]
+      .reverse()
+      .map((item) => ({
+        label: formatMonthLabel(item.billing_month),
+        value: item.charge_amount
+      }))
+  };
+}
+
+export function getWaterBillingDashboard(): WaterDetailDashboard {
+  const dashboard = getWaterDashboard();
+
+  return {
+    title: "水道代",
+    description: "2か月に1回の請求を手動で管理するページです。",
+    items: dashboard.activeEntries,
+    latestItem: dashboard.latestEntry,
+    previousItem: dashboard.previousEntry,
+    monthlyEquivalent: dashboard.monthlyEquivalent,
+    yearlyEquivalent: dashboard.yearlyEquivalent,
+    amountChart: [...dashboard.activeEntries]
+      .reverse()
+      .map((entry) => ({
+        label: formatMonthLabel(entry.billingMonth),
+        value: entry.amount
+      })),
+    templates: dashboard.templates
   };
 }
 
