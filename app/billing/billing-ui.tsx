@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import Link from "next/link";
 import { BillingRecord } from "@/lib/home-billing-api";
 import {
@@ -148,12 +148,14 @@ export function SimpleLineChart({
   subtitle,
   points,
   valueFormat = "number",
+  controls,
   emptyText = "表示データがありません"
 }: {
   title: string;
   subtitle?: string;
   points: BillingLinePoint[];
   valueFormat?: ValueFormatMode;
+  controls?: ReactNode;
   emptyText?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -209,6 +211,7 @@ export function SimpleLineChart({
           </div>
         ) : null}
       </div>
+      {controls ? <div className="billing-chart-controls">{controls}</div> : null}
       {points.length === 0 ? (
         <p className="status-text">{emptyText}</p>
       ) : (

@@ -1086,6 +1086,10 @@ main {
   gap: 0.9rem;
 }
 
+.billing-chart-controls {
+  margin-bottom: 0.9rem;
+}
+
 .billing-chart-stage {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);

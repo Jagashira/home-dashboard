@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   BillingBackLink,
   BillingHistoryTable,
-  ElectricityUsagePanel,
   SimpleLineChart
 } from "../billing-ui";
 import { getElectricityDashboard } from "@/lib/home-billing";
@@ -73,56 +72,50 @@ export default async function ElectricityBillingPage({
           </div>
         </section>
 
-        <section className="panel billing-switch-row">
-          <div className="chip-row budget-chip-group">
-            <Link
-              className={`chip ${view === "monthly" ? "chip-active" : ""}`}
-              href={buildElectricityHref(dashboard.selectedMonth, "monthly")}
-            >
-              月別
-            </Link>
-            <Link
-              className={`chip ${view === "daily" ? "chip-active" : ""}`}
-              href={buildElectricityHref(dashboard.selectedMonth, "daily")}
-            >
-              日別
-            </Link>
-            <Link
-              className={`chip ${view === "hourly" ? "chip-active" : ""}`}
-              href={buildElectricityHref(dashboard.selectedMonth, "hourly")}
-            >
-              時間別
-            </Link>
-          </div>
-          <div className="chip-row budget-chip-group">
-            {dashboard.months.length === 0 ? (
-              <span className="status-text">使用量データがありません</span>
-            ) : (
-              dashboard.months.map((item) => (
-                <Link
-                  className={`chip ${dashboard.selectedMonth === item ? "chip-active" : ""}`}
-                  href={buildElectricityHref(item, view)}
-                  key={item}
-                >
-                  {item}
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-
-        <ElectricityUsagePanel
-          totalUsageKwh={dashboard.usageSummary?.total_usage_kwh ?? null}
-          averageUsageKwh={dashboard.usageSummary?.average_usage_kwh ?? null}
-          maxUsageKwh={dashboard.usageSummary?.max_usage_kwh ?? null}
-          pointCount={dashboard.usageSummary?.point_count ?? null}
-        />
-
         <SimpleLineChart
           title={chartTitle}
           subtitle={chartSubtitle}
           points={chartPoints}
           valueFormat={chartFormat}
+          controls={
+            <div className="billing-switch-row">
+              <div className="chip-row budget-chip-group">
+                <Link
+                  className={`chip ${view === "monthly" ? "chip-active" : ""}`}
+                  href={buildElectricityHref(dashboard.selectedMonth, "monthly")}
+                >
+                  月別
+                </Link>
+                <Link
+                  className={`chip ${view === "daily" ? "chip-active" : ""}`}
+                  href={buildElectricityHref(dashboard.selectedMonth, "daily")}
+                >
+                  日別
+                </Link>
+                <Link
+                  className={`chip ${view === "hourly" ? "chip-active" : ""}`}
+                  href={buildElectricityHref(dashboard.selectedMonth, "hourly")}
+                >
+                  時間別
+                </Link>
+              </div>
+              <div className="chip-row budget-chip-group">
+                {dashboard.months.length === 0 ? (
+                  <span className="status-text">使用量データがありません</span>
+                ) : (
+                  dashboard.months.map((item) => (
+                    <Link
+                      className={`chip ${dashboard.selectedMonth === item ? "chip-active" : ""}`}
+                      href={buildElectricityHref(item, view)}
+                      key={item}
+                    >
+                      {item}
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+          }
         />
 
         <BillingHistoryTable title="全月一覧" records={dashboard.records} />
