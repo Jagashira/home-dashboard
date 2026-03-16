@@ -2,6 +2,8 @@ import {
   BillingRecord,
   ElectricityUsagePoint,
   fetchBillingHistory,
+  fetchElectricityUsageDaily,
+  fetchElectricityUsageHourly,
   fetchElectricityUsageMonths,
   fetchElectricityUsageSummary,
   fetchElectricityUsageTimeSeries
@@ -51,7 +53,6 @@ export type ElectricityDetailDashboard = BillingDetailDashboard & {
   usageChart: BillingLinePoint[];
   dailyUsageChart: BillingLinePoint[];
   hourlyUsageChart: BillingLinePoint[];
-  usagePoints: ElectricityUsagePoint[];
 };
 
 type CategoryMeta = {
@@ -299,44 +300,6 @@ function formatUsageLabel(value: string) {
   return `${month}/${day} ${hour}:${minute}`;
 }
 
-function aggregateDailyUsage(points: ElectricityUsagePoint[]) {
-  const totals = new Map<string, number>();
-
-  for (const point of points) {
-    const date = new Date(point.measured_at);
-    if (Number.isNaN(date.getTime())) continue;
-    const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
-    totals.set(label, (totals.get(label) ?? 0) + point.usage_kwh);
-  }
-
-  return [...totals.entries()].map(([label, value]) => ({
-    label,
-    value
-  }));
-}
-
-function aggregateHourlyUsage(points: ElectricityUsagePoint[]) {
-  const totals = new Map<number, { total: number; count: number }>();
-
-  for (const point of points) {
-    const date = new Date(point.measured_at);
-    if (Number.isNaN(date.getTime())) continue;
-    const hour = date.getHours();
-    const current = totals.get(hour) ?? { total: 0, count: 0 };
-    current.total += point.usage_kwh;
-    current.count += 1;
-    totals.set(hour, current);
-  }
-
-  return Array.from({ length: 24 }, (_, hour) => {
-    const current = totals.get(hour);
-    return {
-      label: `${String(hour).padStart(2, "0")}:00`,
-      value: current ? current.total / current.count : 0
-    };
-  });
-}
-
 export async function getElectricityDashboard(selectedMonth?: string | null): Promise<ElectricityDetailDashboard> {
   const [history, monthsResponse] = await Promise.all([
     fetchBillingHistory({
@@ -354,10 +317,12 @@ export async function getElectricityDashboard(selectedMonth?: string | null): Pr
   const activeMonth = selectedMonth && months.includes(selectedMonth) ? selectedMonth : months[0] ?? null;
 
   let usageSummary: Awaited<ReturnType<typeof fetchElectricityUsageSummary>> | null = null;
-  let usagePoints: ElectricityUsagePoint[] = [];
+  let usageChart: BillingLinePoint[] = [];
+  let dailyUsageChart: BillingLinePoint[] = [];
+  let hourlyUsageChart: BillingLinePoint[] = [];
 
   if (activeMonth) {
-    const [summary, timeseries] = await Promise.all([
+    const [summary, timeseries, daily, hourly] = await Promise.all([
       fetchElectricityUsageSummary({
         providerName: ELECTRICITY_PROVIDER,
         billingMonth: activeMonth
@@ -365,16 +330,30 @@ export async function getElectricityDashboard(selectedMonth?: string | null): Pr
       fetchElectricityUsageTimeSeries({
         providerName: ELECTRICITY_PROVIDER,
         billingMonth: activeMonth
+      }),
+      fetchElectricityUsageDaily({
+        providerName: ELECTRICITY_PROVIDER,
+        billingMonth: activeMonth
+      }),
+      fetchElectricityUsageHourly({
+        providerName: ELECTRICITY_PROVIDER,
+        billingMonth: activeMonth
       })
     ]);
     usageSummary = summary;
-    usagePoints = timeseries.points;
+    usageChart = compactUsagePoints(timeseries.points).map((point) => ({
+      label: formatUsageLabel(point.measured_at),
+      value: point.usage_kwh
+    }));
+    dailyUsageChart = daily.days.map((point) => ({
+      label: point.date,
+      value: point.usage_kwh
+    }));
+    hourlyUsageChart = hourly.hours.map((point) => ({
+      label: point.slot,
+      value: point.average_usage_kwh
+    }));
   }
-
-  const usageChart = compactUsagePoints(usagePoints).map((point) => ({
-    label: formatUsageLabel(point.measured_at),
-    value: point.usage_kwh
-  }));
 
   return {
     title: "電気代",
@@ -385,8 +364,7 @@ export async function getElectricityDashboard(selectedMonth?: string | null): Pr
     selectedMonth: activeMonth,
     usageSummary,
     usageChart,
-    dailyUsageChart: aggregateDailyUsage(usagePoints),
-    hourlyUsageChart: aggregateHourlyUsage(usagePoints),
-    usagePoints
+    dailyUsageChart,
+    hourlyUsageChart
   };
 }
