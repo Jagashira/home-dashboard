@@ -1151,7 +1151,7 @@ main {
 }
 
 .billing-y-label {
-  text-anchor: start;
+  text-anchor: end;
 }
 
 .billing-line {

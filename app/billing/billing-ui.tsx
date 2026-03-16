@@ -140,10 +140,10 @@ export function SimpleLineChart({
   emptyText?: string;
 }) {
   const width = 720;
-  const height = 348;
-  const paddingX = 70;
+  const height = 328;
+  const paddingX = 68;
   const paddingTop = 20;
-  const paddingBottom = 84;
+  const paddingBottom = 56;
   const formatter = formatValue ?? ((value: number) => value.toFixed(1));
   const stats = points.length
     ? {
@@ -202,7 +202,7 @@ export function SimpleLineChart({
                     return (
                       <g key={`${title}-ytick-${index}`}>
                         <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} className="billing-grid-line" />
-                        <text x={14} y={y + 4} className="billing-y-label">
+                        <text x={paddingX - 8} y={y + 4} className="billing-y-label">
                           {formatter(tick)}
                         </text>
                       </g>
@@ -232,7 +232,20 @@ export function SimpleLineChart({
                           y2={height - paddingBottom + 8}
                           className="billing-axis"
                         />
-                        <text x={point.x} y={height - 18} textAnchor="middle" className="billing-x-label">
+                        <text
+                          x={
+                            pointIndex === 0
+                              ? point.x + 2
+                              : pointIndex === points.length - 1
+                                ? point.x - 2
+                                : point.x
+                          }
+                          y={height - paddingBottom + 22}
+                          textAnchor={
+                            pointIndex === 0 ? "start" : pointIndex === points.length - 1 ? "end" : "middle"
+                          }
+                          className="billing-x-label"
+                        >
                           {point.label}
                         </text>
                       </g>
