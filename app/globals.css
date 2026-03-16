@@ -23,6 +23,7 @@ body {
   min-height: 100vh;
   font-family: "Sora", "Avenir Next", "Segoe UI", sans-serif;
   color: var(--text);
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 10% -5%, #ffffff 0%, transparent 45%),
     radial-gradient(circle at 100% 0%, #dbe4ff 0%, transparent 38%),
@@ -48,7 +49,9 @@ p {
 .app-shell {
   max-width: 1080px;
   margin: 0 auto;
+  width: 100%;
   padding: 1rem 1rem 3rem;
+  overflow-x: hidden;
 }
 
 main {
@@ -1020,7 +1023,219 @@ main {
     gap: 0.4rem;
   }
 
-  .dashboard-news-grid {
+.dashboard-news-grid {
+  grid-template-columns: 1fr;
+  }
+}
+
+.billing-hero {
+  border-color: rgba(15, 118, 110, 0.22);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(236, 251, 247, 0.92)),
+    radial-gradient(circle at 90% 16%, rgba(16, 185, 129, 0.14), transparent 42%);
+}
+
+.billing-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.billing-summary-card {
+  min-height: 100%;
+  display: grid;
+  gap: 1rem;
+  align-content: space-between;
+}
+
+.billing-summary-card h3 {
+  margin: 0;
+}
+
+.billing-summary-link {
+  color: inherit;
+}
+
+.billing-summary-link:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.billing-summary-amount {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.4vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.billing-diff-text {
+  margin: 0.15rem 0 0;
+  color: #14532d;
+  font-weight: 700;
+}
+
+.billing-chart-wrap {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.billing-chart-card {
+  overflow: hidden;
+}
+
+.billing-chart-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.billing-chart-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.billing-stat-pill {
+  min-width: 96px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 253, 250, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.billing-stat-pill span {
+  display: block;
+  margin-bottom: 0.18rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.billing-stat-pill strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+
+.billing-chart-scroll {
+  width: 100%;
+  overflow: hidden;
+}
+
+.billing-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  display: block;
+}
+
+.billing-axis {
+  stroke: rgba(15, 23, 42, 0.18);
+  stroke-width: 1;
+}
+
+.billing-grid-line {
+  stroke: rgba(15, 23, 42, 0.08);
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+}
+
+.billing-y-label,
+.billing-x-label {
+  fill: #64748b;
+  font-size: 11px;
+  font-family: "Sora", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.billing-line {
+  fill: none;
+  stroke: #0f766e;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 8px 18px rgba(15, 118, 110, 0.16));
+}
+
+.billing-area {
+  pointer-events: none;
+}
+
+.billing-dot {
+  fill: #0f766e;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.billing-chart-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+
+.billing-table-card h3 {
+  margin-bottom: 0.8rem;
+}
+
+.billing-table-wrap {
+  overflow-x: auto;
+}
+
+.billing-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+  font-size: 0.88rem;
+}
+
+.billing-table th,
+.billing-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: left;
+}
+
+.billing-table th {
+  color: #475569;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.billing-switch-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .billing-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .billing-chart-head {
+    gap: 0.8rem;
+  }
+
+  .billing-chart-stats {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .billing-stat-pill {
+    min-width: 0;
+    padding: 0.55rem 0.6rem;
+    border-radius: 12px;
+  }
+
+  .billing-stat-pill strong {
+    font-size: 0.86rem;
+  }
+
+  .billing-table {
+    min-width: 460px;
   }
 }

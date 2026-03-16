@@ -31,6 +31,12 @@ export default function HomePage() {
         </article>
 
         <article className="panel">
+          <h3>Billing</h3>
+          <p>Track utility bills from home-billing-api with month-over-month comparison.</p>
+          <Link href="/billing">Open Billing</Link>
+        </article>
+
+        <article className="panel">
           <h3>Tasks</h3>
           <p>Manage todo/done tasks with effort, importance, and due date.</p>
           <Link href="/tasks">Open Tasks</Link>
