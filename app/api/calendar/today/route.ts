@@ -15,7 +15,7 @@ export async function GET() {
       orderBy: { startAt: "asc" }
     });
 
-    const fatigueTotal = events.reduce((sum, event) => sum + event.fatigue, 0);
+    const fatigueTotal = events.reduce<number>((sum, event) => sum + event.fatigue, 0);
 
     return NextResponse.json({ ok: true, events, fatigueTotal });
   } catch (error) {
