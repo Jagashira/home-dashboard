@@ -11,6 +11,10 @@ const PRICING_PER_1M = {
 };
 const USD_TO_JPY = Number(process.env.OPENAI_USD_TO_JPY ?? "150");
 
+type FatigueEvent = {
+  fatigue: number;
+};
+
 type ResponsesUsage = {
   input_tokens?: number;
   output_tokens?: number;
@@ -86,7 +90,10 @@ export async function POST() {
       orderBy: { startAt: "asc" }
     });
 
-    const fatigueTotal = events.reduce<number>((sum, event) => sum + event.fatigue, 0);
+    const fatigueTotal = events.reduce(
+      (sum: number, event: FatigueEvent) => sum + event.fatigue,
+      0
+    );
 
     const { start, end } = buildDayRange(new Date(), "08:00", "24:00");
     const freeBlocks = buildFreeBlocks(

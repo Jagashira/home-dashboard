@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+type FatigueEvent = {
+  fatigue: number;
+};
+
 export async function GET() {
   try {
     const dayStart = new Date();
@@ -15,7 +19,10 @@ export async function GET() {
       orderBy: { startAt: "asc" }
     });
 
-    const fatigueTotal = events.reduce<number>((sum, event) => sum + event.fatigue, 0);
+    const fatigueTotal = events.reduce(
+      (sum: number, event: FatigueEvent) => sum + event.fatigue,
+      0
+    );
 
     return NextResponse.json({ ok: true, events, fatigueTotal });
   } catch (error) {

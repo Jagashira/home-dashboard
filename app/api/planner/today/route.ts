@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildDayRange, buildFreeBlocks, buildPlan } from "@/lib/planner";
 
+type FatigueEvent = {
+  fatigue: number;
+};
+
 export async function GET() {
   try {
     const dayStart = new Date();
@@ -16,7 +20,10 @@ export async function GET() {
       orderBy: { startAt: "asc" }
     });
 
-    const fatigueTotal = events.reduce<number>((sum, event) => sum + event.fatigue, 0);
+    const fatigueTotal = events.reduce(
+      (sum: number, event: FatigueEvent) => sum + event.fatigue,
+      0
+    );
 
     const { start, end } = buildDayRange(new Date(), "08:00", "24:00");
     const freeBlocks = buildFreeBlocks(
