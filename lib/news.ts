@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import Parser from "rss-parser";
-import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export const DEFAULT_NEWS_KEYWORDS = ["半導体", "AI", "テック"];
@@ -441,7 +440,12 @@ export async function searchNews(input: SearchNewsInput) {
   const appliedQuery = input.query?.trim() ? input.query.trim() : fallbackQuery;
   const queryTerms = uniqueTokens(splitByDelimiters(appliedQuery));
 
-  const where: Prisma.NewsItemWhereInput = {};
+  const where: {
+    publishedAt?: {
+      gte?: Date;
+      lte?: Date;
+    };
+  } = {};
 
   if (input.from || input.to) {
     where.publishedAt = {
@@ -511,11 +515,13 @@ async function getFavoriteNewsIdSet(newsItemIds: string[]): Promise<Set<string>>
     return new Set();
   }
 
-  const rows = await prisma.$queryRaw<FavoriteNewsRow[]>`
-    SELECT newsItemId
-    FROM "FavoriteNews"
-    WHERE newsItemId IN (${Prisma.join(newsItemIds)})
-  `;
+  const placeholders = newsItemIds.map(() => "?").join(", ");
+  const rows = await prisma.$queryRawUnsafe<FavoriteNewsRow[]>(
+    `SELECT newsItemId
+     FROM "FavoriteNews"
+     WHERE newsItemId IN (${placeholders})`,
+    ...newsItemIds
+  );
 
   return new Set(rows.map((row) => row.newsItemId));
 }
