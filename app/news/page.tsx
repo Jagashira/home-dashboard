@@ -21,42 +21,61 @@ function getString(value: string | string[] | undefined) {
 }
 
 export default async function NewsPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
-  ensureNewsBootstrap();
-  const resolved = searchParams ? await searchParams : {};
-  const topic = getString(resolved.topic);
+  try {
+    ensureNewsBootstrap();
+    const resolved = searchParams ? await searchParams : {};
+    const topic = getString(resolved.topic);
 
-  const topics = listTopics();
-  const latestRun = getLatestFetchRun();
-  const items = listArticles({ topic: topic || undefined, limit: 200 });
+    const topics = listTopics();
+    const latestRun = getLatestFetchRun();
+    const items = listArticles({ topic: topic || undefined, limit: 200 });
 
-  const sourceCounts = latestRun ? (countBySourceForLatestRun(latestRun.id) as Array<{ source_type: string; count: number }>) : [];
+    const sourceCounts = latestRun
+      ? (countBySourceForLatestRun(latestRun.id) as Array<{ source_type: string; count: number }>)
+      : [];
 
-  return (
-    <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
-      <NewsHeader
-        latestUpdatedAt={latestRun?.finished_at ?? null}
-        totalFetched={latestRun?.total_fetched ?? 0}
-        sourceCounts={sourceCounts}
-      />
-      <div className="flex justify-end">
-        <NewsRefreshAction />
-      </div>
-      <div className="flex justify-end gap-2">
-        <a href="/favorites" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          お気に入り
-        </a>
-        <a href="/news/hidden" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          非表示一覧
-        </a>
-      </div>
-      <TopicTabs topics={topics.map((t) => t.name)} activeTopic={topic} />
+    return (
+      <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
+        <NewsHeader
+          latestUpdatedAt={latestRun?.finished_at ?? null}
+          totalFetched={latestRun?.total_fetched ?? 0}
+          sourceCounts={sourceCounts}
+        />
+        <div className="flex justify-end">
+          <NewsRefreshAction />
+        </div>
+        <div className="flex justify-end gap-2">
+          <a href="/favorites" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            お気に入り
+          </a>
+          <a href="/news/hidden" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            非表示一覧
+          </a>
+        </div>
+        <TopicTabs topics={topics.map((t) => t.name)} activeTopic={topic} />
 
-      <section className="space-y-3">
-        {items.map((article: ArticleListRow) => (
-          <ArticleCard key={article.id} article={article} />
-        ))}
-        {items.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm">記事がありません。取得を実行してください。</p> : null}
-      </section>
-    </main>
-  );
+        <section className="space-y-3">
+          {items.map((article: ArticleListRow) => (
+            <ArticleCard key={article.id} article={article} />
+          ))}
+          {items.length === 0 ? (
+            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+              記事がありません。取得を実行してください。
+            </p>
+          ) : null}
+        </section>
+      </main>
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return (
+      <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
+        <section className="panel error-panel">
+          <h1>News</h1>
+          <p className="error-text">ニュースデータの読み込みに失敗しました。</p>
+          <p className="status-text">{message}</p>
+        </section>
+      </main>
+    );
+  }
 }
