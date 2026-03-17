@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildDayRange, buildFreeBlocks, buildPlan } from "@/lib/planner";
+import {
+  buildDayRange,
+  buildFreeBlocks,
+  buildPlan,
+  type PlannerPlanBlock,
+  type TimeBlock
+} from "@/lib/planner";
 
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 const MODEL = "gpt-4.1-mini";
@@ -144,10 +150,10 @@ export async function POST() {
       `Date: ${new Date().toISOString().slice(0, 10)}`,
       `FatigueTotal: ${fatigueTotal}`,
       `Events:\n${events.map((event: CalendarBlockEvent) => `- ${hm(event.startAt)}-${hm(event.endAt)} [${event.tag}] fatigue=${event.fatigue} ${event.title}`).join("\n") || "- none"}`,
-      `FreeBlocks:\n${freeBlocks.map((block) => `- ${block.start}-${block.end} (${block.minutes}m)`).join("\n") || "- none"}`,
+      `FreeBlocks:\n${freeBlocks.map((block: TimeBlock) => `- ${block.start}-${block.end} (${block.minutes}m)`).join("\n") || "- none"}`,
       `TasksTodo:\n${tasksTodo.map((task: PlannerTaskRow) => `- ${task.title} ${task.minutes}m imp=${task.importance} fatigue=${task.fatigue} due=${task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "none"}`).join("\n") || "- none"}`,
-      `BasePlan:\n${plan.map((block) => `- ${block.block.start}-${block.block.end}: ${block.items.map((item) => `${item.title}(${item.minutes}m)`).join(", ") || "(empty)"}`).join("\n") || "- none"}`,
-      `MovementHints:\n${movementHints.map((hint) => `- ${hint}`).join("\n") || "- none"}`,
+      `BasePlan:\n${plan.map((block: PlannerPlanBlock) => `- ${block.block.start}-${block.block.end}: ${block.items.map((item: PlannerPlanBlock["items"][number]) => `${item.title}(${item.minutes}m)`).join(", ") || "(empty)"}`).join("\n") || "- none"}`,
+      `MovementHints:\n${movementHints.map((hint: string) => `- ${hint}`).join("\n") || "- none"}`,
       "",
       "日本語で、今日の実行プランを提案してください。",
       "条件:",

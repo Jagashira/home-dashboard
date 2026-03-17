@@ -39,9 +39,9 @@ function extractMainContentFromHtml(html: string): string {
   candidates.push(html);
 
   const normalized = candidates
-    .map((candidate) => stripHtmlTags(candidate))
+    .map((candidate: string) => stripHtmlTags(candidate))
     .filter(Boolean)
-    .sort((a, b) => b.length - a.length);
+    .sort((a: string, b: string) => b.length - a.length);
 
   return normalized[0] ?? "";
 }
