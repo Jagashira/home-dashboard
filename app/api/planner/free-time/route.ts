@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildDayRange, buildFreeBlocks } from "@/lib/planner";
 
+type CalendarBlockEvent = {
+  startAt: Date;
+  endAt: Date;
+};
+
 export async function GET() {
   try {
     const { start, end } = buildDayRange(new Date(), "08:00", "24:00");
@@ -18,7 +23,7 @@ export async function GET() {
     });
 
     const freeBlocks = buildFreeBlocks(
-      events.map((event) => ({ startAt: event.startAt, endAt: event.endAt })),
+      events.map((event: CalendarBlockEvent) => ({ startAt: event.startAt, endAt: event.endAt })),
       start,
       end
     );

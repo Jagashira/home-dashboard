@@ -6,6 +6,20 @@ type FatigueEvent = {
   fatigue: number;
 };
 
+type CalendarBlockEvent = {
+  startAt: Date;
+  endAt: Date;
+};
+
+type PlannerTaskRow = {
+  id: string;
+  title: string;
+  minutes: number;
+  importance: number;
+  fatigue: number;
+  dueDate: Date | null;
+};
+
 export async function GET() {
   try {
     const dayStart = new Date();
@@ -27,7 +41,7 @@ export async function GET() {
 
     const { start, end } = buildDayRange(new Date(), "08:00", "24:00");
     const freeBlocks = buildFreeBlocks(
-      events.map((event) => ({ startAt: event.startAt, endAt: event.endAt })),
+      events.map((event: CalendarBlockEvent) => ({ startAt: event.startAt, endAt: event.endAt })),
       start,
       end
     );
@@ -38,7 +52,7 @@ export async function GET() {
     });
 
     const plan = buildPlan(
-      tasksTodo.map((task) => ({
+      tasksTodo.map((task: PlannerTaskRow) => ({
         id: task.id,
         title: task.title,
         minutes: task.minutes,

@@ -15,6 +15,23 @@ type FatigueEvent = {
   fatigue: number;
 };
 
+type CalendarBlockEvent = {
+  startAt: Date;
+  endAt: Date;
+  title: string;
+  tag: string;
+  fatigue: number;
+};
+
+type PlannerTaskRow = {
+  id: string;
+  title: string;
+  minutes: number;
+  importance: number;
+  fatigue: number;
+  dueDate: Date | null;
+};
+
 type ResponsesUsage = {
   input_tokens?: number;
   output_tokens?: number;
@@ -97,7 +114,7 @@ export async function POST() {
 
     const { start, end } = buildDayRange(new Date(), "08:00", "24:00");
     const freeBlocks = buildFreeBlocks(
-      events.map((event) => ({ startAt: event.startAt, endAt: event.endAt })),
+      events.map((event: CalendarBlockEvent) => ({ startAt: event.startAt, endAt: event.endAt })),
       start,
       end
     );
@@ -108,7 +125,7 @@ export async function POST() {
     });
 
     const plan = buildPlan(
-      tasksTodo.map((task) => ({
+      tasksTodo.map((task: PlannerTaskRow) => ({
         id: task.id,
         title: task.title,
         minutes: task.minutes,
@@ -120,15 +137,15 @@ export async function POST() {
     );
 
     const movementHints = events
-      .filter((event) => event.tag === "OUT")
-      .map((event) => `${hm(event.startAt)}-${hm(event.endAt)} ${event.title}`);
+      .filter((event: CalendarBlockEvent) => event.tag === "OUT")
+      .map((event: CalendarBlockEvent) => `${hm(event.startAt)}-${hm(event.endAt)} ${event.title}`);
 
     const prompt = [
       `Date: ${new Date().toISOString().slice(0, 10)}`,
       `FatigueTotal: ${fatigueTotal}`,
-      `Events:\n${events.map((event) => `- ${hm(event.startAt)}-${hm(event.endAt)} [${event.tag}] fatigue=${event.fatigue} ${event.title}`).join("\n") || "- none"}`,
+      `Events:\n${events.map((event: CalendarBlockEvent) => `- ${hm(event.startAt)}-${hm(event.endAt)} [${event.tag}] fatigue=${event.fatigue} ${event.title}`).join("\n") || "- none"}`,
       `FreeBlocks:\n${freeBlocks.map((block) => `- ${block.start}-${block.end} (${block.minutes}m)`).join("\n") || "- none"}`,
-      `TasksTodo:\n${tasksTodo.map((task) => `- ${task.title} ${task.minutes}m imp=${task.importance} fatigue=${task.fatigue} due=${task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "none"}`).join("\n") || "- none"}`,
+      `TasksTodo:\n${tasksTodo.map((task: PlannerTaskRow) => `- ${task.title} ${task.minutes}m imp=${task.importance} fatigue=${task.fatigue} due=${task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "none"}`).join("\n") || "- none"}`,
       `BasePlan:\n${plan.map((block) => `- ${block.block.start}-${block.block.end}: ${block.items.map((item) => `${item.title}(${item.minutes}m)`).join(", ") || "(empty)"}`).join("\n") || "- none"}`,
       `MovementHints:\n${movementHints.map((hint) => `- ${hint}`).join("\n") || "- none"}`,
       "",
