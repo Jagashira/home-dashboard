@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { parseCalendarTitle } from "@/lib/calendarParser";
 import { fetchGoogleCalendarTodayEvents } from "@/lib/googleCalendar";
 
+type CalendarKeyRow = {
+  startAt: Date;
+  title: string;
+};
+
 export async function POST() {
   try {
     const events = await fetchGoogleCalendarTodayEvents();
@@ -19,7 +24,9 @@ export async function POST() {
       select: { startAt: true, title: true }
     });
 
-    const existingKeys = new Set(existing.map((row) => `${row.title}__${row.startAt.toISOString()}`));
+    const existingKeys = new Set(
+      existing.map((row: CalendarKeyRow) => `${row.title}__${row.startAt.toISOString()}`)
+    );
 
     let inserted = 0;
     for (const event of events) {
