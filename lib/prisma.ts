@@ -1,10 +1,22 @@
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 
-if (!process.env.DATABASE_URL) {
-  const sqlitePath = path.resolve(process.cwd(), "data", "news-aggregator.db").replace(/\\/g, "/");
-  process.env.DATABASE_URL = `file:${sqlitePath}`;
+function normalizeDatabaseUrl(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    const sqlitePath = path.resolve(process.cwd(), "data", "news-aggregator.db").replace(/\\/g, "/");
+    return `file:${sqlitePath}`;
+  }
+
+  if (trimmed.startsWith("file:")) {
+    return trimmed;
+  }
+
+  const sqlitePath = path.resolve(process.cwd(), trimmed).replace(/\\/g, "/");
+  return `file:${sqlitePath}`;
 }
+
+process.env.DATABASE_URL = normalizeDatabaseUrl(process.env.DATABASE_URL);
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
