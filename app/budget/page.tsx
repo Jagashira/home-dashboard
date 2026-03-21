@@ -127,8 +127,13 @@ export default async function BudgetPage({
         <section className="panel budget-hero">
           <div className="budget-grid-bg" aria-hidden="true" />
           <div className="budget-hero-body stack-md">
-            <p className="label-caption">HOUSEHOLD SPENDING</p>
-            <h1 className="budget-title">Budget Dashboard</h1>
+            <div className="stack-sm">
+              <p className="label-caption">HOUSEHOLD SPENDING</p>
+              <h1 className="budget-title">Budget Dashboard</h1>
+              <p className="status-text">
+                期間別の支出集計と入力導線を 1 画面にまとめています。
+              </p>
+            </div>
             <div className="actions-row">
               <Link className="button-primary" href="/budget/expenses">
                 支出入力

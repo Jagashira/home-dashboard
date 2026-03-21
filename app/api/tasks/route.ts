@@ -8,7 +8,14 @@ export async function GET(request: NextRequest) {
 
     const tasks = await prisma.task.findMany({
       where,
-      orderBy: [{ status: "asc" }, { dueDate: "asc" }, { importance: "desc" }, { createdAt: "desc" }]
+      orderBy: [
+        { status: "asc" },
+        { dueDate: "asc" },
+        { targetDate: "asc" },
+        { importance: "desc" },
+        { urgency: "desc" },
+        { createdAt: "desc" }
+      ]
     });
 
     return NextResponse.json({ ok: true, tasks });
@@ -26,9 +33,10 @@ export async function POST(request: NextRequest) {
 
     const title = typeof payload.title === "string" ? payload.title.trim() : "";
     const minutes = Number(payload.minutes ?? 30);
+    const canSplit = payload.canSplit !== undefined ? Boolean(payload.canSplit) : false;
     const importance = Number(payload.importance ?? 3);
-    const fatigue = Number(payload.fatigue ?? 20);
     const dueDateRaw = typeof payload.dueDate === "string" ? payload.dueDate : "";
+    const targetDateRaw = typeof payload.targetDate === "string" ? payload.targetDate : "";
     const note = typeof payload.note === "string" ? payload.note : "";
 
     if (!title || !Number.isFinite(minutes) || minutes <= 0) {
@@ -36,14 +44,19 @@ export async function POST(request: NextRequest) {
     }
 
     const dueDate = dueDateRaw ? new Date(dueDateRaw) : null;
+    const targetDate = targetDateRaw ? new Date(targetDateRaw) : null;
 
     const task = await prisma.task.create({
       data: {
         title,
         minutes: Math.max(1, Math.round(minutes)),
+        progressMinutes: 0,
+        canSplit,
         importance: Math.min(5, Math.max(1, Math.round(importance))),
-        fatigue: Math.min(100, Math.max(0, Math.round(fatigue))),
+        fatigue: 0,
+        urgency: 3,
         dueDate: dueDate && !Number.isNaN(dueDate.getTime()) ? dueDate : null,
+        targetDate: targetDate && !Number.isNaN(targetDate.getTime()) ? targetDate : null,
         note: note || null,
         status: "todo"
       }

@@ -35,17 +35,22 @@ model CalendarEvent {
 }
 
 model Task {
-  id         String   @id @default(cuid())
-  title      String
-  note       String?
-  minutes    Int
-  importance Int
-  fatigue    Int
-  dueDate    DateTime?
-  status     String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  note           String?
+  minutes        Int
+  progressMinutes Int     @default(0)
+  canSplit       Boolean  @default(true)
+  importance     Int
+  fatigue        Int
+  urgency        Int      @default(3)
+  dueDate        DateTime?
+  targetDate     DateTime?
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([status])
   @@index([dueDate])
+  @@index([targetDate])
 }

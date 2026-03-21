@@ -13,6 +13,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "seed:planner": "tsx scripts/seed-task-planner.ts",
     "news:refresh": "tsx scripts/refresh-news.ts",
     "news:fetch": "curl -X POST http://localhost:3000/api/fetch"
   },

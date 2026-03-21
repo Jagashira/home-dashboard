@@ -35,47 +35,57 @@ export default async function NewsPage({ searchParams }: { searchParams?: Promis
       : [];
 
     return (
-      <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
-        <NewsHeader
-          latestUpdatedAt={latestRun?.finished_at ?? null}
-          totalFetched={latestRun?.total_fetched ?? 0}
-          sourceCounts={sourceCounts}
-        />
-        <div className="flex justify-end">
-          <NewsRefreshAction />
-        </div>
-        <div className="flex justify-end gap-2">
-          <a href="/favorites" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            お気に入り
-          </a>
-          <a href="/news/hidden" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            非表示一覧
-          </a>
-        </div>
-        <TopicTabs topics={topics.map((t) => t.name)} activeTopic={topic} />
+      <section className="stack-lg">
+        <section className="panel budget-hero news-hero">
+          <div className="budget-grid-bg" aria-hidden="true" />
+          <div className="budget-hero-body stack-md">
+            <div className="stack-sm">
+              <p className="label-caption">NEWS FEED</p>
+              <h1 className="budget-title">News Dashboard</h1>
+            </div>
+            <NewsHeader
+              latestUpdatedAt={latestRun?.finished_at ?? null}
+              totalFetched={latestRun?.total_fetched ?? 0}
+              sourceCounts={sourceCounts}
+            />
+            <div className="actions-row">
+              <NewsRefreshAction />
+              <a href="/favorites" className="button-secondary">
+                お気に入り
+              </a>
+              <a href="/news/hidden" className="button-secondary">
+                非表示一覧
+              </a>
+            </div>
+          </div>
+        </section>
 
-        <section className="space-y-3">
+        <section className="panel news-filter-panel">
+          <TopicTabs topics={topics.map((t) => t.name)} activeTopic={topic} />
+        </section>
+
+        <section className="news-list">
           {items.map((article: ArticleListRow) => (
             <ArticleCard key={article.id} article={article} />
           ))}
           {items.length === 0 ? (
-            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+            <p className="panel status-text">
               記事がありません。取得を実行してください。
             </p>
           ) : null}
         </section>
-      </main>
+      </section>
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
     return (
-      <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
+      <section className="stack-lg">
         <section className="panel error-panel">
           <h1>News</h1>
           <p className="error-text">ニュースデータの読み込みに失敗しました。</p>
           <p className="status-text">{message}</p>
         </section>
-      </main>
+      </section>
     );
   }
 }

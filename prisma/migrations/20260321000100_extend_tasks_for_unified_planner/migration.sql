@@ -1,0 +1,5 @@
+ALTER TABLE "Task" ADD COLUMN "canSplit" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Task" ADD COLUMN "urgency" INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE "Task" ADD COLUMN "targetDate" DATETIME;
+
+CREATE INDEX "Task_targetDate_idx" ON "Task"("targetDate");

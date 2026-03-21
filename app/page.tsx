@@ -37,15 +37,15 @@ export default function HomePage() {
         </article>
 
         <article className="panel">
-          <h3>Tasks</h3>
-          <p>Manage todo/done tasks with effort, importance, and due date.</p>
+          <h3>Task Planner</h3>
+          <p>Manage tasks and decide what to start now from effort, deadlines, and ease.</p>
           <Link href="/tasks">Open Tasks</Link>
         </article>
 
         <article className="panel">
           <h3>Planner</h3>
-          <p>See calendar events, fatigue total, free blocks, and today's task plan.</p>
-          <Link href="/planner">Open Planner</Link>
+          <p>Planner is now merged into Task Planner.</p>
+          <Link href="/tasks">Open Planner</Link>
         </article>
       </section>
     </section>
