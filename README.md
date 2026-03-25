@@ -61,7 +61,7 @@ npm run db:seed
 ```env
 OPENAI_API_KEY=
 NEWS_API_KEY=
-DATABASE_URL=./data/news-aggregator.db
+DATABASE_URL=file:/data/news/news.db
 APP_BASE_URL=http://localhost:3000
 FETCH_SECRET=
 OPENAI_API=
@@ -88,7 +88,7 @@ docker compose logs -f app
 
 - コンテナ名: `news-aggregator`
 - 公開ポート: `3000`
-- DB永続化: `./data` マウント
+- DB永続化: 親プロジェクトの `data/news/news.db` をコンテナ内 `/data/news/news.db` として利用
 
 ## DB初期化
 
@@ -164,4 +164,3 @@ npm run db:seed
 - 要約キャッシュの再利用
 - 既読/お気に入り管理
 - 週次ダイジェスト生成
-

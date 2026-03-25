@@ -101,63 +101,68 @@ async function collectBySource(params: {
   for (const source of params.sources) {
     if (!source.isActive) continue;
     const perSourceLimit = Math.max(1, Math.ceil(params.limit / params.sources.length));
-    if (source.sourceType === "rss") {
-      const rows = await fetchFromRss({
-        topicName: params.topicName,
-        query: params.query,
-        keywords: params.queryTerms,
-        feeds: parseRssFeeds(source),
-        limit: perSourceLimit
-      });
-      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
-      items.push(...rows);
-    } else if (source.sourceType === "gdelt") {
-      const rows = await fetchFromGdelt({
-        topicName: params.topicName,
-        query: buildGdeltQuery(params.queryTerms),
-        limit: perSourceLimit
-      });
-      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
-      items.push(...rows);
-    } else if (source.sourceType === "hackernews") {
-      const rows = await fetchFromHackerNews({
-        topicName: params.topicName,
-        query: params.query,
-        keywords: params.queryTerms,
-        limit: perSourceLimit
-      });
-      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
-      items.push(...rows);
-    } else if (source.sourceType === "newsapi") {
-      const rows = await fetchFromNewsApi({
-        topicName: params.topicName,
-        query: params.query,
-        keywords: params.queryTerms,
-        limit: perSourceLimit,
-        days: params.days
-      });
-      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
-      items.push(...rows);
-    } else if (source.sourceType === "youtube") {
-      const rows = await fetchFromYoutube({
-        topicName: params.topicName,
-        query: params.query,
-        keywords: params.queryTerms,
-        limit: perSourceLimit,
-        days: params.days,
-        apiKey: APP_CONFIG.youtubeApiKey
-      });
-      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
-      items.push(...rows);
-    } else if (source.sourceType === "reddit") {
-      const rows = await fetchFromReddit({
-        topicName: params.topicName,
-        query: params.query,
-        keywords: params.queryTerms,
-        limit: perSourceLimit
-      });
-      sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
-      items.push(...rows);
+    try {
+      if (source.sourceType === "rss") {
+        const rows = await fetchFromRss({
+          topicName: params.topicName,
+          query: params.query,
+          keywords: params.queryTerms,
+          feeds: parseRssFeeds(source),
+          limit: perSourceLimit
+        });
+        sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+        items.push(...rows);
+      } else if (source.sourceType === "gdelt") {
+        const rows = await fetchFromGdelt({
+          topicName: params.topicName,
+          query: buildGdeltQuery(params.queryTerms),
+          limit: perSourceLimit
+        });
+        sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+        items.push(...rows);
+      } else if (source.sourceType === "hackernews") {
+        const rows = await fetchFromHackerNews({
+          topicName: params.topicName,
+          query: params.query,
+          keywords: params.queryTerms,
+          limit: perSourceLimit
+        });
+        sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+        items.push(...rows);
+      } else if (source.sourceType === "newsapi") {
+        const rows = await fetchFromNewsApi({
+          topicName: params.topicName,
+          query: params.query,
+          keywords: params.queryTerms,
+          limit: perSourceLimit,
+          days: params.days
+        });
+        sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+        items.push(...rows);
+      } else if (source.sourceType === "youtube") {
+        const rows = await fetchFromYoutube({
+          topicName: params.topicName,
+          query: params.query,
+          keywords: params.queryTerms,
+          limit: perSourceLimit,
+          days: params.days,
+          apiKey: APP_CONFIG.youtubeApiKey
+        });
+        sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+        items.push(...rows);
+      } else if (source.sourceType === "reddit") {
+        const rows = await fetchFromReddit({
+          topicName: params.topicName,
+          query: params.query,
+          keywords: params.queryTerms,
+          limit: perSourceLimit
+        });
+        sourceRawCount[source.sourceType] = (sourceRawCount[source.sourceType] ?? 0) + rows.length;
+        items.push(...rows);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      console.error(`[news-fetch] source=${source.sourceType} topic=${params.topicName} failed: ${message}`);
     }
   }
   return { items, sourceRawCount };
