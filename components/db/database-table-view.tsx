@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { getColumnLabel, getTableCatalog, type TableDomainKey } from "@/lib/db-catalog";
 
 type TableColumn = {
   name: string;
@@ -31,6 +32,7 @@ type TablePayload = {
 
 type Props = {
   tableName: string;
+  domain: TableDomainKey;
 };
 
 function stringifyValue(value: unknown) {
@@ -69,7 +71,8 @@ function normalizeDraftValue(column: TableColumn, rawValue: string) {
   return rawValue;
 }
 
-export function DatabaseTableView({ tableName }: Props) {
+export function DatabaseTableView({ tableName, domain }: Props) {
+  const catalog = getTableCatalog(tableName);
   const [payload, setPayload] = useState<TablePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -169,16 +172,13 @@ export function DatabaseTableView({ tableName }: Props) {
       <section className="panel">
         <div className="head-actions">
           <div>
-            <p className="eyebrow">Database</p>
-            <h1>{tableName}</h1>
-            <p className="status-text">
-              {payload
-                ? `${payload.visibleRows} / ${payload.totalRows} rows`
-                : "テーブルを読み込み中"}
-            </p>
+            <p className="eyebrow">{catalog.databaseLabel}</p>
+            <h1>{catalog.title}</h1>
+            <p>{catalog.summary}</p>
+            <p className="status-text">{catalog.purpose}</p>
           </div>
-          <Link className="button-secondary" href="/db">
-            一覧へ戻る
+          <Link className="button-secondary" href={`/db/${domain}`}>
+            カテゴリへ戻る
           </Link>
         </div>
 
@@ -212,8 +212,12 @@ export function DatabaseTableView({ tableName }: Props) {
           <>
             <div className="db-meta-grid">
               <div className="db-meta-card">
-                <span>主キー</span>
-                <strong>{payload.table.primaryKeys.join(", ") || "なし"}</strong>
+                <span>表示件数</span>
+                <strong>{payload.visibleRows}</strong>
+              </div>
+              <div className="db-meta-card">
+                <span>総件数</span>
+                <strong>{payload.totalRows}</strong>
               </div>
               <div className="db-meta-card">
                 <span>列数</span>
@@ -232,7 +236,8 @@ export function DatabaseTableView({ tableName }: Props) {
                     <th>操作</th>
                     {payload.table.columns.map((column) => (
                       <th key={column.name}>
-                        <div>{column.name}</div>
+                        <div>{getColumnLabel(tableName, column.name)}</div>
+                        <small>{column.name}</small>
                         <small>{column.type || "TEXT"}</small>
                       </th>
                     ))}
