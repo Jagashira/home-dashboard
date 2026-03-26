@@ -19,6 +19,9 @@ export default async function BillingPage() {
               先月分の請求金額と前月比をカテゴリ別に一覧します。詳細ページは電気代とインターネット代から開始します。
             </p>
             <div className="actions-row">
+              <Link className="button-primary" href="/billing/report">
+                レポート出力
+              </Link>
               <Link className="button-secondary" href="/">
                 ホームへ戻る
               </Link>
