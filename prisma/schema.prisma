@@ -54,3 +54,41 @@ model Task {
   @@index([dueDate])
   @@index([targetDate])
 }
+
+model InventoryItem {
+  id                   String         @id @default(cuid())
+  name                 String
+  category             String?
+  location             String?
+  unit                 String
+  currentQuantity      Float          @default(0)
+  minimumQuantity      Float          @default(0)
+  preferredBuyQuantity Float          @default(1)
+  note                 String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  shoppingItems        ShoppingItem[]
+
+  @@index([name])
+  @@index([category])
+  @@index([location])
+}
+
+model ShoppingItem {
+  id              String         @id @default(cuid())
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  name            String
+  quantity        Float          @default(1)
+  unit            String
+  status          String
+  store           String?
+  note            String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  purchasedAt     DateTime?
+
+  @@index([status])
+  @@index([inventoryItemId])
+  @@index([createdAt])
+}
