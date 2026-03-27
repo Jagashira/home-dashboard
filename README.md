@@ -60,6 +60,7 @@ npm run db:seed
 
 ```env
 OPENAI_API_KEY=
+OPENAI_ADMIN_API_KEY=
 NEWS_API_KEY=
 DATABASE_URL=file:/data/news/news.db
 APP_BASE_URL=http://localhost:3000
@@ -69,6 +70,7 @@ OPENAI_API=
 
 - `NEWS_API_KEY` が未設定でも動作します（NewsAPIソースは自動スキップ）。
 - `OPENAI_API_KEY` 未設定時は、簡易フォールバック要約を保存します（summary空保存はしません）。
+- GPT 使用量のホーム表示は `OPENAI_ADMIN_API_KEY` だけで取得します。表示するのは「今日の使用料金」「今月の使用料金」「token数」です。
 
 ## 開発環境起動
 

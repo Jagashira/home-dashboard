@@ -85,6 +85,14 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
   const recommendedTitle = planner.recommendedNow?.title ?? "優先タスクはまだありません";
   const newsCount = latestRun?.total_fetched ?? 0;
   const alertCount = planner.attentionCount;
+  const openAiUsage = {
+    href: "https://platform.openai.com/usage",
+    available: false,
+    monthLabel: new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long" }).format(now),
+    monthSpendLabel: "読み込み中…",
+    todaySpendLabel: "読み込み中…",
+    totalTokensLabel: "読み込み中…"
+  };
 
   return {
     todayLabel: formatDateLabel(now),
@@ -144,6 +152,14 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         detail: latestRun ? `設定: ${settings.totalRequested} 件取得` : "まだ最新取得なし",
         href: "/news",
         tone: "blue"
+      },
+      {
+        title: "GPT",
+        label: "OpenAI",
+        value: openAiUsage.monthSpendLabel,
+        detail: `今日 ${openAiUsage.todaySpendLabel} · Tok ${openAiUsage.totalTokensLabel}`,
+        href: openAiUsage.href,
+        tone: openAiUsage.available ? "green" : "neutral"
       }
     ],
     primaryCards: [
@@ -186,6 +202,16 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         stat: "Live view",
         variant: "status",
         tone: "neutral"
+      },
+      {
+        title: "GPT",
+        href: openAiUsage.href,
+        eyebrow: "Usage",
+        description: `今日 ${openAiUsage.todaySpendLabel} / Token ${openAiUsage.totalTokensLabel}`,
+        meta: openAiUsage.monthLabel,
+        stat: openAiUsage.monthSpendLabel,
+        variant: "kpi",
+        tone: openAiUsage.available ? "green" : "neutral"
       }
     ],
     supportCards: [

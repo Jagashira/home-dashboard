@@ -314,6 +314,61 @@ main {
   line-height: 1.55;
 }
 
+.home-skeleton-stack {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.home-skeleton-line,
+.home-skeleton-block {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(216, 224, 238, 0.82), rgba(233, 238, 246, 0.96), rgba(216, 224, 238, 0.82));
+  background-size: 200% 100%;
+  animation: home-skeleton-shimmer 1.5s linear infinite;
+}
+
+.home-skeleton-line {
+  display: block;
+  height: 0.9rem;
+}
+
+.home-skeleton-line-lg {
+  width: 7.2rem;
+  height: 1.9rem;
+}
+
+.home-skeleton-line-md {
+  width: 6rem;
+  height: 1.1rem;
+}
+
+.home-skeleton-line-sm {
+  width: 10.5rem;
+}
+
+.home-skeleton-line-xs {
+  width: 4.5rem;
+  height: 0.8rem;
+}
+
+.home-skeleton-copy {
+  width: 100%;
+  height: 4.8rem;
+  border-radius: 18px;
+}
+
+@keyframes home-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .home-quick-title-row h3 {
   margin: 0 0 0.5rem;
   color: #17233f;
