@@ -13,14 +13,15 @@ import { listTopics } from "@/lib/repositories/topics";
 import { allocateTopics } from "./allocate-topics";
 import { classifyLanguage } from "./classify-language";
 import { normalizeArticles } from "./normalize-article";
-import { summarizeArticle } from "./summarize-article";
 import { NormalizedArticle, Source } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/config";
 
 const QUERY_SYNONYMS: Record<string, string[]> = {
   "半導体": ["semiconductor", "semiconductors", "chiplet", "foundry", "fab", "tsmc", "nvidia", "hbm", "euv"],
   ai: ["artificial intelligence", "genai", "llm", "machine learning", "生成AI", "大規模言語モデル"],
-  "テック": ["tech", "technology", "software", "startup", "cloud", "developer"]
+  IT: ["tech", "technology", "software", "startup", "cloud", "developer", "security", "saas"],
+  "世界": ["international", "global", "geopolitics", "overseas", "world news", "diplomacy"],
+  "日本": ["japan", "domestic", "government", "industry", "economy", "disaster"]
 };
 
 const TOPIC_RULES: Record<string, { include: string[]; exclude: string[] }> = {
@@ -32,9 +33,57 @@ const TOPIC_RULES: Record<string, { include: string[]; exclude: string[] }> = {
     include: ["ai", "人工知能", "生成ai", "llm", "machine learning", "chatgpt", "gpt", "anthropic", "gemini"],
     exclude: ["芸能", "celebrity", "katherine heigl", "recipe"]
   },
-  "テック": {
-    include: ["tech", "technology", "software", "クラウド", "os", "アプリ", "ガジェット", "developer"],
+  IT: {
+    include: [
+      "it",
+      "tech",
+      "technology",
+      "software",
+      "security",
+      "クラウド",
+      "os",
+      "アプリ",
+      "ガジェット",
+      "developer",
+      "saas"
+    ],
     exclude: ["旅行", "グルメ", "レシピ", "football", "soccer", "entertainment"]
+  },
+  "世界": {
+    include: [
+      "世界",
+      "国際",
+      "海外",
+      "international",
+      "global",
+      "geopolitics",
+      "外交",
+      "米国",
+      "中国",
+      "欧州",
+      "ukraine",
+      "russia",
+      "taiwan"
+    ],
+    exclude: ["芸能", "celebrity", "グルメ", "recipe", "football", "soccer"]
+  },
+  "日本": {
+    include: [
+      "日本",
+      "国内",
+      "政府",
+      "首相",
+      "国会",
+      "経産省",
+      "日銀",
+      "災害",
+      "地震",
+      "事故",
+      "選挙",
+      "economy",
+      "industry"
+    ],
+    exclude: ["芸能", "celebrity", "グルメ", "recipe", "baseball", "soccer"]
   }
 };
 
@@ -213,12 +262,6 @@ export async function runFetchNews() {
 
         const content = item.content ?? (await fetchArticleContent(item.url));
         const lang = classifyLanguage(item.title, content);
-        const summary = await summarizeArticle({
-          title: item.title,
-          content,
-          sourceLabel: item.sourceLabel
-        });
-
         const result = insertArticle({
           topicId: row.topic.id,
           sourceId: source.id,
@@ -230,7 +273,7 @@ export async function runFetchNews() {
           publishedAt: item.publishedAt ?? null,
           fetchedAt: item.fetchedAt,
           content: content ?? null,
-          summary,
+          summary: null,
           language: lang.language,
           isJapanese: lang.isJapanese,
           score: item.score ?? null

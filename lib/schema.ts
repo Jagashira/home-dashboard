@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { DEFAULT_NEWS_TOPICS, DEFAULT_RSS_FEEDS, dedupeFeedUrls } from "./news-defaults";
 
 export function initSchema() {
   const db = getDb();
@@ -94,35 +95,105 @@ export function seedDefaults() {
   const db = getDb();
   const now = new Date().toISOString();
 
-  const topicsCount = db.prepare("SELECT COUNT(*) as c FROM topics").get() as { c: number };
-  if (topicsCount.c === 0) {
-    const insertTopic = db.prepare(`
-      INSERT INTO topics(name, query, is_active, allocation_percent, display_order, created_at, updated_at)
-      VALUES (?, ?, 1, ?, ?, ?, ?)
-    `);
-    insertTopic.run("半導体", "半導体 日本 最新", 34, 1, now, now);
-    insertTopic.run("AI", "AI 日本 最新", 33, 2, now, now);
-    insertTopic.run("テック", "テック 日本 最新", 33, 3, now, now);
-  }
+  const topicRows = db
+    .prepare("SELECT id, name FROM topics")
+    .all() as Array<{ id: number; name: string }>;
+  const topicByName = new Map(topicRows.map((row) => [row.name, row]));
+  const insertTopic = db.prepare(`
+    INSERT INTO topics(name, query, is_active, allocation_percent, display_order, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const updateTopic = db.prepare(`
+    UPDATE topics
+    SET name=?, query=?, is_active=?, allocation_percent=?, display_order=?, updated_at=?
+    WHERE id=?
+  `);
+
+  const syncTopics = db.transaction(() => {
+    for (const topic of DEFAULT_NEWS_TOPICS) {
+      const existing =
+        topicByName.get(topic.name) ?? (topic.name === "IT" ? topicByName.get("テック") : undefined);
+
+      if (existing) {
+        updateTopic.run(
+          topic.name,
+          topic.query,
+          topic.isActive === false ? 0 : 1,
+          topic.allocationPercent,
+          topic.displayOrder,
+          now,
+          existing.id
+        );
+        topicByName.set(topic.name, { id: existing.id, name: topic.name });
+        continue;
+      }
+
+      const result = insertTopic.run(
+        topic.name,
+        topic.query,
+        topic.isActive === false ? 0 : 1,
+        topic.allocationPercent,
+        topic.displayOrder,
+        now,
+        now
+      );
+      topicByName.set(topic.name, { id: Number(result.lastInsertRowid), name: topic.name });
+    }
+
+    const legacyTech = topicRows.find((row) => row.name === "テック");
+    const canonicalIt = topicByName.get("IT");
+    if (legacyTech && canonicalIt && legacyTech.id !== canonicalIt.id) {
+      db.prepare(
+        `
+        UPDATE topics
+        SET is_active=0, allocation_percent=0, updated_at=?
+        WHERE id=?
+      `
+      ).run(now, legacyTech.id);
+    }
+  });
+  syncTopics();
 
   const insertSource = db.prepare(`
     INSERT OR IGNORE INTO sources(source_type, source_name, is_active, config_json, created_at, updated_at)
     VALUES (?, ?, 1, ?, ?, ?)
   `);
-  insertSource.run(
-    "rss",
-    "RSS",
-    JSON.stringify({
-      feeds: [
-        "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
-        "https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf",
-        "https://ascii.jp/rss.xml",
-        "https://jp.techcrunch.com/feed/"
-      ]
-    }),
-    now,
-    now
-  );
+  const rssSource = db
+    .prepare("SELECT id, is_active, config_json FROM sources WHERE source_type = ? LIMIT 1")
+    .get("rss") as { id: number; is_active: number; config_json: string | null } | undefined;
+
+  if (rssSource) {
+    let existingFeeds: string[] = [];
+    if (rssSource.config_json) {
+      try {
+        const config = JSON.parse(rssSource.config_json) as { feeds?: string[] };
+        existingFeeds = Array.isArray(config.feeds) ? config.feeds : [];
+      } catch {
+        existingFeeds = [];
+      }
+    }
+
+    db.prepare(
+      `
+      UPDATE sources
+      SET source_name=?, config_json=?, updated_at=?
+      WHERE id=?
+    `
+    ).run(
+      "RSS",
+      JSON.stringify({ feeds: dedupeFeedUrls([...DEFAULT_RSS_FEEDS, ...existingFeeds]) }),
+      now,
+      rssSource.id
+    );
+  } else {
+    insertSource.run(
+      "rss",
+      "RSS",
+      JSON.stringify({ feeds: DEFAULT_RSS_FEEDS }),
+      now,
+      now
+    );
+  }
   insertSource.run("gdelt", "GDELT", JSON.stringify({}), now, now);
   insertSource.run("hackernews", "Hacker News", JSON.stringify({}), now, now);
   insertSource.run("newsapi", "NewsAPI", JSON.stringify({}), now, now);

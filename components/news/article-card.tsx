@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SourceBadge } from "./source-badge";
-import { SummaryBlock } from "./summary-block";
 import { ArticleActions } from "./article-actions";
 
 type ArticleRow = {
@@ -13,7 +12,6 @@ type ArticleRow = {
   source_type: string;
   published_at: string | null;
   topic_name: string;
-  summary: string | null;
   is_favorite: number;
   is_hidden: number;
 };
@@ -34,7 +32,6 @@ export function ArticleCard({ article }: { article: ArticleRow }) {
         <Badge>{article.topic_name}</Badge>
         <Badge>{article.published_at ? new Date(article.published_at).toLocaleString("ja-JP") : "-"}</Badge>
       </div>
-      <SummaryBlock summary={article.summary} />
       <div className="mt-3 flex gap-3 text-sm">
         <a href={article.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
           元記事

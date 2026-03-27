@@ -2,7 +2,11 @@ import { Topic } from "@/lib/types";
 
 export function allocateTopics(topics: Topic[], totalRequested: number) {
   const active = topics.filter((topic) => topic.isActive);
-  const raw = active.map((topic) => (totalRequested * topic.allocationPercent) / 100);
+  const allocationBase =
+    active.reduce((sum, topic) => sum + Math.max(0, topic.allocationPercent), 0) || active.length || 1;
+  const raw = active.map(
+    (topic) => (totalRequested * Math.max(0, topic.allocationPercent)) / allocationBase
+  );
   const base = raw.map((v) => Math.floor(v));
   let remain = totalRequested - base.reduce((sum, v) => sum + v, 0);
 
@@ -20,4 +24,3 @@ export function allocateTopics(topics: Topic[], totalRequested: number) {
     count: Math.max(1, base[i] || 0)
   }));
 }
-

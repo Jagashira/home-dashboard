@@ -28,7 +28,7 @@ export function insertArticle(input: {
   publishedAt?: string | null;
   fetchedAt: string;
   content?: string | null;
-  summary: string;
+  summary?: string | null;
   language: string;
   isJapanese: boolean;
   score?: number | null;

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { SourceBadge } from "@/components/news/source-badge";
-import { SummaryBlock } from "@/components/news/summary-block";
 import { ensureNewsBootstrap } from "@/lib/news-bootstrap";
 import { getArticleById } from "@/lib/repositories/articles";
 
@@ -19,7 +18,6 @@ export default async function NewsDetailPage({ params }: Params) {
         source_type: string;
         published_at: string | null;
         topic_name: string;
-        summary: string | null;
         content: string | null;
         url: string;
       }
@@ -35,7 +33,6 @@ export default async function NewsDetailPage({ params }: Params) {
           <span>{article.topic_name}</span>
           <span>{article.published_at ? new Date(article.published_at).toLocaleString("ja-JP") : "-"}</span>
         </div>
-        <SummaryBlock summary={article.summary} />
         <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
           {(article.content ?? "").slice(0, 500)}
         </p>
@@ -51,4 +48,3 @@ export default async function NewsDetailPage({ params }: Params) {
     </main>
   );
 }
-
