@@ -167,15 +167,20 @@ export async function uploadStorageFile(file: File) {
   }
 
   const targetPath = await resolveStorageEntryPath(fileName);
+  let alreadyExists = false;
 
   try {
     await fs.access(targetPath);
-    throw new Error("A file with the same name already exists.");
+    alreadyExists = true;
   } catch (error) {
     const code = typeof error === "object" && error && "code" in error ? error.code : undefined;
     if (code && code !== "ENOENT") {
       throw error;
     }
+  }
+
+  if (alreadyExists) {
+    throw new Error("A file with the same name already exists.");
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());

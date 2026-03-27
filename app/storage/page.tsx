@@ -73,15 +73,15 @@ function getActionErrorMessage(error: unknown, fallback: string) {
 async function uploadStorageFileAction(formData: FormData) {
   "use server";
 
-  let destination = buildNoticePath("error", "Choose a file to upload.");
+  const selected = formData.get("file");
+  if (!(selected instanceof File)) {
+    redirect(buildNoticePath("error", "Choose a file to upload."));
+  }
+
+  let destination = buildNoticePath("error", "Failed to upload the file.");
 
   try {
-    const file = formData.get("file");
-    if (!(file instanceof File)) {
-      redirect(destination);
-    }
-
-    const result = await uploadStorageFile(file);
+    const result = await uploadStorageFile(selected);
     revalidatePath("/storage");
     destination = buildNoticePath("success", result.message);
   } catch (error) {
