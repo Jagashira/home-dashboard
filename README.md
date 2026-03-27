@@ -66,11 +66,13 @@ DATABASE_URL=file:/data/news/news.db
 APP_BASE_URL=http://localhost:3000
 FETCH_SECRET=
 OPENAI_API=
+STORAGE_BASE_PATH=./data/storage-dev
 ```
 
 - `NEWS_API_KEY` が未設定でも動作します（NewsAPIソースは自動スキップ）。
 - `OPENAI_API_KEY` 未設定時は、簡易フォールバック要約を保存します（summary空保存はしません）。
 - GPT 使用量のホーム表示は `OPENAI_ADMIN_API_KEY` だけで取得します。表示するのは「今日の使用料金」「今月の使用料金」「token数」です。
+- `STORAGE_BASE_PATH` は `/storage` ページが読むベースディレクトリです。Mac 開発では `./data/storage-dev` のようなローカルディレクトリ、home-server では NAS 側の実パスを設定してください。
 
 ## 開発環境起動
 
@@ -80,6 +82,13 @@ npm run dev
 
 - 一覧: `http://localhost:3000/news`
 - 設定: `http://localhost:3000/news/settings`
+- ストレージ: `http://localhost:3000/storage`
+
+## Storage ページの設定
+
+- Mac 開発時は `STORAGE_BASE_PATH=./data/storage-dev` のように設定し、必要なら `mkdir -p data/storage-dev` で開発用ディレクトリを作成します。
+- home-server では `STORAGE_BASE_PATH=/srv/home-data/storage` のように設定して起動します。
+- `STORAGE_BASE_PATH` が未設定、または対象ディレクトリが存在しない場合でも `/storage` ページは落ちず、画面上に状態を表示します。
 
 ## Docker 起動
 
