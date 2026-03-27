@@ -54,37 +54,60 @@ function buildNoticePath(outcome: "success" | "error", notice: string) {
   return `/storage?${params.toString()}`;
 }
 
+function getActionErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = error.code;
+
+    if (code === "EROFS") {
+      return "The storage directory is mounted read-only, so uploads and deletes are currently disabled.";
+    }
+
+    if (code === "EACCES" || code === "EPERM") {
+      return "The app does not have permission to modify the storage directory.";
+    }
+  }
+
+  return error instanceof Error ? error.message : fallback;
+}
+
 async function uploadStorageFileAction(formData: FormData) {
   "use server";
+
+  let destination = buildNoticePath("error", "Choose a file to upload.");
 
   try {
     const file = formData.get("file");
     if (!(file instanceof File)) {
-      redirect(buildNoticePath("error", "Choose a file to upload."));
+      redirect(destination);
     }
 
     const result = await uploadStorageFile(file);
     revalidatePath("/storage");
-    redirect(buildNoticePath("success", result.message));
+    destination = buildNoticePath("success", result.message);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to upload the file.";
-    redirect(buildNoticePath("error", message));
+    const message = getActionErrorMessage(error, "Failed to upload the file.");
+    destination = buildNoticePath("error", message);
   }
+
+  redirect(destination);
 }
 
 async function deleteStorageEntryAction(formData: FormData) {
   "use server";
 
   const name = String(formData.get("name") ?? "");
+  let destination = buildNoticePath("error", "Failed to delete the selected entry.");
 
   try {
     const result = await deleteStorageEntry(name);
     revalidatePath("/storage");
-    redirect(buildNoticePath("success", result.message));
+    destination = buildNoticePath("success", result.message);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete the selected entry.";
-    redirect(buildNoticePath("error", message));
+    const message = getActionErrorMessage(error, "Failed to delete the selected entry.");
+    destination = buildNoticePath("error", message);
   }
+
+  redirect(destination);
 }
 
 function getNoticeTone(outcome: string | undefined) {

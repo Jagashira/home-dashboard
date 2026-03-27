@@ -33,16 +33,27 @@ function isSafeEntryName(name: string) {
 }
 
 const MIME_TYPES: Record<string, string> = {
+  ".aac": "audio/aac",
+  ".avi": "video/x-msvideo",
   ".csv": "text/csv; charset=utf-8",
+  ".flac": "audio/flac",
   ".gif": "image/gif",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
   ".json": "application/json; charset=utf-8",
+  ".m4a": "audio/mp4",
   ".md": "text/markdown; charset=utf-8",
+  ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".ogg": "audio/ogg",
+  ".ogv": "video/ogg",
   ".pdf": "application/pdf",
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
+  ".wav": "audio/wav",
+  ".webm": "video/webm",
   ".webp": "image/webp"
 };
 
