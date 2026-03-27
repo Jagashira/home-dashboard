@@ -1,7 +1,17 @@
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { getStorageDirectoryState } from "@/lib/storage";
+import { deleteStorageEntry, getStorageDirectoryState, uploadStorageFile } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
+
+type StoragePageProps = {
+  searchParams?: Promise<{
+    notice?: string;
+    outcome?: string;
+  }>;
+};
 
 function formatTimestamp(value: string) {
   return new Date(value).toLocaleString("ja-JP");
@@ -39,8 +49,56 @@ function getStatusTone(status: Awaited<ReturnType<typeof getStorageDirectoryStat
   }
 }
 
-export default async function StoragePage() {
+function buildNoticePath(outcome: "success" | "error", notice: string) {
+  const params = new URLSearchParams({ outcome, notice });
+  return `/storage?${params.toString()}`;
+}
+
+async function uploadStorageFileAction(formData: FormData) {
+  "use server";
+
+  try {
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      redirect(buildNoticePath("error", "Choose a file to upload."));
+    }
+
+    const result = await uploadStorageFile(file);
+    revalidatePath("/storage");
+    redirect(buildNoticePath("success", result.message));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to upload the file.";
+    redirect(buildNoticePath("error", message));
+  }
+}
+
+async function deleteStorageEntryAction(formData: FormData) {
+  "use server";
+
+  const name = String(formData.get("name") ?? "");
+
+  try {
+    const result = await deleteStorageEntry(name);
+    revalidatePath("/storage");
+    redirect(buildNoticePath("success", result.message));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete the selected entry.";
+    redirect(buildNoticePath("error", message));
+  }
+}
+
+function getNoticeTone(outcome: string | undefined) {
+  if (outcome === "success") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-900";
+  }
+
+  return "border-rose-200 bg-rose-50 text-rose-900";
+}
+
+export default async function StoragePage({ searchParams }: StoragePageProps) {
   const storage = await getStorageDirectoryState();
+  const params = (await searchParams) ?? {};
+  const notice = params.notice?.trim();
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
@@ -86,6 +144,38 @@ export default async function StoragePage() {
               </p>
             ) : null}
           </div>
+
+          {notice ? (
+            <div className={`rounded-xl border p-4 text-sm font-medium ${getNoticeTone(params.outcome)}`}>
+              {notice}
+            </div>
+          ) : null}
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-slate-900">Upload File</h2>
+              <p className="text-sm leading-6 text-slate-600">
+                Uploads are stored directly under the configured base directory. Existing file names
+                are protected from overwrite.
+              </p>
+            </div>
+
+            <form action={uploadStorageFileAction} className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+              <input
+                type="file"
+                name="file"
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700"
+                disabled={storage.status !== "ready"}
+              />
+              <button
+                type="submit"
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={storage.status !== "ready"}
+              >
+                Upload
+              </button>
+            </form>
+          </div>
         </Card>
 
         <Card className="overflow-hidden p-0">
@@ -112,6 +202,7 @@ export default async function StoragePage() {
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Size</th>
                     <th className="px-4 py-3 font-medium">Updated</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -121,6 +212,33 @@ export default async function StoragePage() {
                       <td className="px-4 py-3 text-slate-600">{entry.kind}</td>
                       <td className="px-4 py-3 text-slate-600">{formatSize(entry.size, entry.kind)}</td>
                       <td className="px-4 py-3 text-slate-600">{formatTimestamp(entry.updatedAt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          {entry.kind === "file" ? (
+                            <Link
+                              href={`/storage/files/${encodeURIComponent(entry.name)}`}
+                              target="_blank"
+                              className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
+                            >
+                              View
+                            </Link>
+                          ) : (
+                            <span className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-400">
+                              Directory
+                            </span>
+                          )}
+
+                          <form action={deleteStorageEntryAction}>
+                            <input type="hidden" name="name" value={entry.name} />
+                            <button
+                              type="submit"
+                              className="inline-flex items-center rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700"
+                            >
+                              Delete
+                            </button>
+                          </form>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

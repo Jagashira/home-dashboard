@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { createReadStream, promises as fs } from "node:fs";
 import path from "node:path";
 
 export type StorageItem = {
@@ -26,6 +26,49 @@ export type StorageDirectoryState =
 
 function resolveBasePath(basePath: string) {
   return path.isAbsolute(basePath) ? basePath : path.resolve(process.cwd(), basePath);
+}
+
+function isSafeEntryName(name: string) {
+  return Boolean(name) && path.basename(name) === name && !name.includes("/") && !name.includes("\\");
+}
+
+const MIME_TYPES: Record<string, string> = {
+  ".csv": "text/csv; charset=utf-8",
+  ".gif": "image/gif",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".json": "application/json; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".txt": "text/plain; charset=utf-8",
+  ".webp": "image/webp"
+};
+
+export function guessMimeType(name: string) {
+  return MIME_TYPES[path.extname(name).toLowerCase()] ?? "application/octet-stream";
+}
+
+export async function getResolvedStorageBasePath() {
+  const configuredBasePath = process.env.STORAGE_BASE_PATH?.trim();
+
+  if (!configuredBasePath) {
+    throw new Error("STORAGE_BASE_PATH is not configured.");
+  }
+
+  const resolvedBasePath = resolveBasePath(configuredBasePath);
+  await fs.access(resolvedBasePath);
+  return resolvedBasePath;
+}
+
+export async function resolveStorageEntryPath(name: string) {
+  if (!isSafeEntryName(name)) {
+    throw new Error("Invalid storage entry name.");
+  }
+
+  const basePath = await getResolvedStorageBasePath();
+  return path.join(basePath, name);
 }
 
 export async function getStorageDirectoryState(): Promise<StorageDirectoryState> {
@@ -99,4 +142,65 @@ export async function getStorageDirectoryState(): Promise<StorageDirectoryState>
       message: "Failed to read the configured base directory."
     };
   }
+}
+
+export async function uploadStorageFile(file: File) {
+  if (!file || file.size <= 0) {
+    throw new Error("Choose a file to upload.");
+  }
+
+  const fileName = path.basename(file.name).trim();
+
+  if (!isSafeEntryName(fileName)) {
+    throw new Error("The selected file name is not allowed.");
+  }
+
+  const targetPath = await resolveStorageEntryPath(fileName);
+
+  try {
+    await fs.access(targetPath);
+    throw new Error("A file with the same name already exists.");
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error ? error.code : undefined;
+    if (code && code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  await fs.writeFile(targetPath, bytes);
+
+  return {
+    fileName,
+    message: `Uploaded ${fileName}.`
+  };
+}
+
+export async function deleteStorageEntry(name: string) {
+  const targetPath = await resolveStorageEntryPath(name);
+  const stats = await fs.stat(targetPath);
+
+  if (stats.isDirectory()) {
+    await fs.rm(targetPath, { recursive: false, force: false });
+    return { message: `Deleted directory ${name}.` };
+  }
+
+  await fs.unlink(targetPath);
+  return { message: `Deleted file ${name}.` };
+}
+
+export async function getStorageFileStream(name: string) {
+  const filePath = await resolveStorageEntryPath(name);
+  const stats = await fs.stat(filePath);
+
+  if (!stats.isFile()) {
+    throw new Error("Only files can be viewed.");
+  }
+
+  return {
+    filePath,
+    mimeType: guessMimeType(name),
+    size: stats.size,
+    stream: createReadStream(filePath)
+  };
 }

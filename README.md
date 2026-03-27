@@ -89,6 +89,7 @@ npm run dev
 - Mac 開発時は `STORAGE_BASE_PATH=./data/storage-dev` のように設定し、必要なら `mkdir -p data/storage-dev` で開発用ディレクトリを作成します。
 - home-server では `STORAGE_BASE_PATH=/srv/home-data/storage` のように設定して起動します。
 - `STORAGE_BASE_PATH` が未設定、または対象ディレクトリが存在しない場合でも `/storage` ページは落ちず、画面上に状態を表示します。
+- `/storage` ではベースディレクトリ直下の一覧表示に加えて、ファイルのアップロード、直下エントリの削除、ファイルのインライン表示ができます。
 
 ## Docker 起動
 
