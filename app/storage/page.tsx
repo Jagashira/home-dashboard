@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { deleteStorageEntry, getStorageDirectoryState, uploadStorageFile } from "@/lib/storage";
+import { getStorageDirectoryState } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -52,62 +50,6 @@ function getStatusTone(status: Awaited<ReturnType<typeof getStorageDirectoryStat
 function buildNoticePath(outcome: "success" | "error", notice: string) {
   const params = new URLSearchParams({ outcome, notice });
   return `/storage?${params.toString()}`;
-}
-
-function getActionErrorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object" && "code" in error) {
-    const code = error.code;
-
-    if (code === "EROFS") {
-      return "The storage directory is mounted read-only, so uploads and deletes are currently disabled.";
-    }
-
-    if (code === "EACCES" || code === "EPERM") {
-      return "The app does not have permission to modify the storage directory.";
-    }
-  }
-
-  return error instanceof Error ? error.message : fallback;
-}
-
-async function uploadStorageFileAction(formData: FormData) {
-  "use server";
-
-  const selected = formData.get("file");
-  if (!(selected instanceof File)) {
-    redirect(buildNoticePath("error", "Choose a file to upload."));
-  }
-
-  let destination = buildNoticePath("error", "Failed to upload the file.");
-
-  try {
-    const result = await uploadStorageFile(selected);
-    revalidatePath("/storage");
-    destination = buildNoticePath("success", result.message);
-  } catch (error) {
-    const message = getActionErrorMessage(error, "Failed to upload the file.");
-    destination = buildNoticePath("error", message);
-  }
-
-  redirect(destination);
-}
-
-async function deleteStorageEntryAction(formData: FormData) {
-  "use server";
-
-  const name = String(formData.get("name") ?? "");
-  let destination = buildNoticePath("error", "Failed to delete the selected entry.");
-
-  try {
-    const result = await deleteStorageEntry(name);
-    revalidatePath("/storage");
-    destination = buildNoticePath("success", result.message);
-  } catch (error) {
-    const message = getActionErrorMessage(error, "Failed to delete the selected entry.");
-    destination = buildNoticePath("error", message);
-  }
-
-  redirect(destination);
 }
 
 function getNoticeTone(outcome: string | undefined) {
@@ -183,7 +125,12 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
               </p>
             </div>
 
-            <form action={uploadStorageFileAction} className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+            <form
+              action="/storage/upload"
+              method="post"
+              encType="multipart/form-data"
+              className="mt-4 flex flex-col gap-3 md:flex-row md:items-center"
+            >
               <input
                 type="file"
                 name="file"
@@ -251,7 +198,7 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
                             </span>
                           )}
 
-                          <form action={deleteStorageEntryAction}>
+                          <form action="/storage/delete" method="post">
                             <input type="hidden" name="name" value={entry.name} />
                             <button
                               type="submit"
