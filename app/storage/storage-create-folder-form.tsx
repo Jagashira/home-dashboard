@@ -63,18 +63,18 @@ export function StorageCreateFolderForm({
 
   if (compact) {
     return (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 xl:flex-row xl:items-center">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 md:flex-row md:items-center">
         <input
           type="text"
           value={folderName}
           onChange={(event) => setFolderName(event.target.value)}
           placeholder="Folder name"
-          className="h-11 w-full rounded-2xl border border-white/35 bg-white/90 px-4 text-sm text-slate-700 shadow-sm outline-none ring-0 placeholder:text-slate-400"
+          className="h-11 w-full min-w-0 rounded-2xl border border-white/35 bg-white/90 px-4 text-sm text-slate-700 shadow-sm outline-none ring-0 placeholder:text-slate-400"
           disabled={disabled || isCreating}
         />
         <button
           type="submit"
-          className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/18 px-4 text-sm font-semibold text-white backdrop-blur disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/18 px-4 text-sm font-semibold text-white backdrop-blur disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
           disabled={disabled || isCreating}
         >
           {isCreating ? "Creating..." : "New Folder"}
