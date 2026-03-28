@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { getStorageDirectoryState } from "@/lib/storage";
+import { StorageCreateFolderForm } from "@/app/storage/storage-create-folder-form";
 import { StorageDeleteButton } from "@/app/storage/storage-delete-button";
 import { StorageUploadForm } from "@/app/storage/storage-upload-form";
 
@@ -10,6 +11,7 @@ type StoragePageProps = {
   searchParams?: Promise<{
     notice?: string;
     outcome?: string;
+    path?: string;
   }>;
 };
 
@@ -57,13 +59,22 @@ function getNoticeTone(outcome: string | undefined) {
   return "border-rose-200 bg-rose-50 text-rose-900";
 }
 
+function buildStorageHref(currentPath: string) {
+  return currentPath ? `/storage?path=${encodeURIComponent(currentPath)}` : "/storage";
+}
+
+function buildFileHref(relativePath: string) {
+  return `/storage/files/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 export default async function StoragePage({ searchParams }: StoragePageProps) {
-  const storage = await getStorageDirectoryState();
   const params = (await searchParams) ?? {};
+  const currentPath = params.path ?? "";
+  const storage = await getStorageDirectoryState(currentPath);
   const notice = params.notice?.trim();
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6">
+    <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="space-y-4">
         <Card className="space-y-4">
           <div className="space-y-2">
@@ -72,8 +83,8 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
             </p>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Storage</h1>
             <p className="text-sm leading-6 text-slate-600">
-              This page reads the NAS or storage base directory through the server, and is intended
-              to be exposed only behind nginx access control.
+              A Google Drive style entry for the home NAS. Browse folders, upload files, create
+              folders, and manage direct children inside the configured base directory.
             </p>
           </div>
 
@@ -88,11 +99,9 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Resolved Directory
+                Current Folder
               </p>
-              <p className="mt-2 break-all font-mono text-sm text-slate-800">
-                {storage.resolvedBasePath ?? "-"}
-              </p>
+              <p className="mt-2 break-all font-mono text-sm text-slate-800">{storage.currentRelativeLabel}</p>
             </div>
           </div>
 
@@ -111,7 +120,31 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
             <div className={`rounded-xl border p-4 text-sm font-medium ${getNoticeTone(params.outcome)}`}>{notice}</div>
           ) : null}
 
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Folder Navigation</h2>
+                <p className="mt-1 text-sm text-slate-600">Browse and organize nested folders like a simple drive view.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {storage.breadcrumbs.map((crumb, index) => (
+                  <span key={crumb.path || "root"} className="flex items-center gap-2">
+                    <Link href={buildStorageHref(crumb.path)} className="rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100">
+                      {crumb.label}
+                    </Link>
+                    {index < storage.breadcrumbs.length - 1 ? <span className="text-slate-400">/</span> : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <StorageCreateFolderForm currentPath={storage.currentPath} disabled={storage.status !== "ready"} />
+            </div>
+          </div>
+
           <StorageUploadForm
+            currentPath={storage.currentPath}
             disabled={storage.status !== "ready"}
             initialNotice={notice ? { message: notice, outcome: params.outcome } : null}
           />
@@ -120,18 +153,16 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
         <Card className="overflow-hidden p-0">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Directory Listing</h2>
-              <p className="mt-1 text-sm text-slate-600">Direct children of the configured base directory only.</p>
+              <h2 className="text-lg font-semibold text-slate-900">Drive View</h2>
+              <p className="mt-1 text-sm text-slate-600">Folders open in place, files open in a new tab.</p>
             </div>
-            {storage.status === "ready" ? (
-              <p className="text-sm text-slate-500">{storage.entries.length} items</p>
-            ) : null}
+            {storage.status === "ready" ? <p className="text-sm text-slate-500">{storage.entries.length} items</p> : null}
           </div>
 
           {storage.status !== "ready" ? (
             <div className="px-4 py-6 text-sm text-slate-600">Directory contents are unavailable in the current configuration.</div>
           ) : storage.entries.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-slate-600">The configured directory exists, but it is currently empty.</div>
+            <div className="px-4 py-6 text-sm text-slate-600">This folder is currently empty.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -146,8 +177,20 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {storage.entries.map((entry) => (
-                    <tr key={entry.name} className="align-top">
-                      <td className="px-4 py-3 font-medium text-slate-900">{entry.name}</td>
+                    <tr key={entry.relativePath} className="align-top">
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {entry.kind === "directory" ? (
+                          <Link href={buildStorageHref(entry.relativePath)} className="inline-flex items-center gap-2 text-slate-900 hover:text-slate-700">
+                            <span className="text-base">📁</span>
+                            <span>{entry.name}</span>
+                          </Link>
+                        ) : (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-base">📄</span>
+                            <span>{entry.name}</span>
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-slate-600">{entry.kind}</td>
                       <td className="px-4 py-3 text-slate-600">{formatSize(entry.size, entry.kind)}</td>
                       <td className="px-4 py-3 text-slate-600">{formatTimestamp(entry.updatedAt)}</td>
@@ -155,19 +198,22 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
                         <div className="flex flex-wrap gap-2">
                           {entry.kind === "file" ? (
                             <Link
-                              href={`/storage/files/${encodeURIComponent(entry.name)}`}
+                              href={buildFileHref(entry.relativePath)}
                               target="_blank"
                               className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
                             >
                               View
                             </Link>
                           ) : (
-                            <span className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-400">
-                              Directory
-                            </span>
+                            <Link
+                              href={buildStorageHref(entry.relativePath)}
+                              className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
+                            >
+                              Open
+                            </Link>
                           )}
 
-                          <StorageDeleteButton name={entry.name} />
+                          <StorageDeleteButton name={entry.name} relativePath={entry.relativePath} />
                         </div>
                       </td>
                     </tr>

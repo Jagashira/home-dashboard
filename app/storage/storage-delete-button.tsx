@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 
 type StorageDeleteButtonProps = {
   name: string;
+  relativePath: string;
 };
 
-export function StorageDeleteButton({ name }: StorageDeleteButtonProps) {
+export function StorageDeleteButton({ name, relativePath }: StorageDeleteButtonProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -25,7 +26,7 @@ export function StorageDeleteButton({ name }: StorageDeleteButtonProps) {
 
     try {
       const formData = new FormData();
-      formData.append("name", name);
+      formData.append("path", relativePath);
 
       const response = await fetch("/storage/delete", {
         method: "POST",

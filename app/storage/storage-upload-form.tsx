@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type StorageUploadFormProps = {
+  currentPath: string;
   disabled: boolean;
   initialNotice?: {
     message: string;
@@ -26,7 +27,7 @@ function getNoticeTone(outcome: UploadState["outcome"]) {
   return "border-rose-200 bg-rose-50 text-rose-900";
 }
 
-export function StorageUploadForm({ disabled, initialNotice }: StorageUploadFormProps) {
+export function StorageUploadForm({ currentPath, disabled, initialNotice }: StorageUploadFormProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>({
@@ -56,6 +57,7 @@ export function StorageUploadForm({ disabled, initialNotice }: StorageUploadForm
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("currentPath", currentPath);
 
     const request = new XMLHttpRequest();
     request.open("POST", "/storage/upload");

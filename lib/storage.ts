@@ -3,9 +3,15 @@ import path from "node:path";
 
 export type StorageItem = {
   name: string;
+  relativePath: string;
   kind: "file" | "directory";
   size: number;
   updatedAt: string;
+};
+
+export type StorageBreadcrumb = {
+  label: string;
+  path: string;
 };
 
 export type StorageDirectoryState =
@@ -13,6 +19,9 @@ export type StorageDirectoryState =
       status: "ready";
       configuredBasePath: string;
       resolvedBasePath: string;
+      currentPath: string;
+      currentRelativeLabel: string;
+      breadcrumbs: StorageBreadcrumb[];
       entries: StorageItem[];
       message: string;
     }
@@ -20,17 +29,12 @@ export type StorageDirectoryState =
       status: "missing-env" | "missing-directory" | "read-error";
       configuredBasePath: string | null;
       resolvedBasePath: string | null;
+      currentPath: string;
+      currentRelativeLabel: string;
+      breadcrumbs: StorageBreadcrumb[];
       entries: [];
       message: string;
     };
-
-function resolveBasePath(basePath: string) {
-  return path.isAbsolute(basePath) ? basePath : path.resolve(process.cwd(), basePath);
-}
-
-function isSafeEntryName(name: string) {
-  return Boolean(name) && path.basename(name) === name && !name.includes("/") && !name.includes("\\");
-}
 
 const MIME_TYPES: Record<string, string> = {
   ".aac": "audio/aac",
@@ -57,6 +61,59 @@ const MIME_TYPES: Record<string, string> = {
   ".webp": "image/webp"
 };
 
+function resolveBasePath(basePath: string) {
+  return path.isAbsolute(basePath) ? basePath : path.resolve(process.cwd(), basePath);
+}
+
+function isSafeName(name: string) {
+  return Boolean(name) && path.basename(name) === name && !name.includes("/") && !name.includes("\\");
+}
+
+export function normalizeStoragePath(input?: string | null) {
+  if (!input) {
+    return "";
+  }
+
+  const normalized = path.posix
+    .normalize(input.replace(/\\/g, "/"))
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
+
+  if (!normalized || normalized === ".") {
+    return "";
+  }
+
+  if (normalized === ".." || normalized.startsWith("../")) {
+    throw new Error("Invalid storage path.");
+  }
+
+  return normalized;
+}
+
+function buildBreadcrumbs(currentPath: string): StorageBreadcrumb[] {
+  const segments = currentPath ? currentPath.split("/") : [];
+  const breadcrumbs: StorageBreadcrumb[] = [{ label: "Storage", path: "" }];
+
+  segments.forEach((segment, index) => {
+    breadcrumbs.push({
+      label: segment,
+      path: segments.slice(0, index + 1).join("/")
+    });
+  });
+
+  return breadcrumbs;
+}
+
+export function buildStoragePagePath(pathname: string, outcome: "success" | "error", notice: string) {
+  const params = new URLSearchParams({ outcome, notice });
+  const normalizedPath = normalizeStoragePath(pathname);
+  if (normalizedPath) {
+    params.set("path", normalizedPath);
+  }
+
+  return `/storage?${params.toString()}`;
+}
+
 export function guessMimeType(name: string) {
   return MIME_TYPES[path.extname(name).toLowerCase()] ?? "application/octet-stream";
 }
@@ -73,23 +130,44 @@ export async function getResolvedStorageBasePath() {
   return resolvedBasePath;
 }
 
-export async function resolveStorageEntryPath(name: string) {
-  if (!isSafeEntryName(name)) {
+async function resolveStorageAbsolutePath(relativePath = "") {
+  const basePath = await getResolvedStorageBasePath();
+  const normalizedPath = normalizeStoragePath(relativePath);
+  const absolutePath = path.resolve(basePath, normalizedPath);
+
+  if (absolutePath !== basePath && !absolutePath.startsWith(`${basePath}${path.sep}`)) {
+    throw new Error("Invalid storage path.");
+  }
+
+  return {
+    basePath,
+    normalizedPath,
+    absolutePath
+  };
+}
+
+export async function resolveStorageEntryPath(name: string, currentPath = "") {
+  if (!isSafeName(name)) {
     throw new Error("Invalid storage entry name.");
   }
 
-  const basePath = await getResolvedStorageBasePath();
-  return path.join(basePath, name);
+  const parentPath = normalizeStoragePath(currentPath);
+  return resolveStorageAbsolutePath(parentPath ? `${parentPath}/${name}` : name);
 }
 
-export async function getStorageDirectoryState(): Promise<StorageDirectoryState> {
+export async function getStorageDirectoryState(relativePath = ""): Promise<StorageDirectoryState> {
   const configuredBasePath = process.env.STORAGE_BASE_PATH?.trim();
+  const currentPath = normalizeStoragePath(relativePath);
+  const breadcrumbs = buildBreadcrumbs(currentPath);
 
   if (!configuredBasePath) {
     return {
       status: "missing-env",
       configuredBasePath: null,
       resolvedBasePath: null,
+      currentPath,
+      currentRelativeLabel: currentPath || "/",
+      breadcrumbs,
       entries: [],
       message:
         "STORAGE_BASE_PATH is not set. Configure it to point to the directory you want to browse."
@@ -99,14 +177,17 @@ export async function getStorageDirectoryState(): Promise<StorageDirectoryState>
   const resolvedBasePath = resolveBasePath(configuredBasePath);
 
   try {
-    const directoryEntries = await fs.readdir(resolvedBasePath, { withFileTypes: true });
+    const { absolutePath } = await resolveStorageAbsolutePath(currentPath);
+    const directoryEntries = await fs.readdir(absolutePath, { withFileTypes: true });
     const entries = await Promise.all(
       directoryEntries.map(async (entry) => {
-        const fullPath = path.join(resolvedBasePath, entry.name);
+        const entryRelativePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+        const fullPath = path.join(absolutePath, entry.name);
         const stats = await fs.stat(fullPath);
 
         return {
           name: entry.name,
+          relativePath: entryRelativePath,
           kind: stats.isDirectory() ? "directory" : "file",
           size: stats.size,
           updatedAt: stats.mtime.toISOString()
@@ -126,11 +207,14 @@ export async function getStorageDirectoryState(): Promise<StorageDirectoryState>
       status: "ready",
       configuredBasePath,
       resolvedBasePath,
+      currentPath,
+      currentRelativeLabel: currentPath || "/",
+      breadcrumbs,
       entries,
       message:
         entries.length === 0
           ? "The directory is empty."
-          : `Showing ${entries.length} item${entries.length === 1 ? "" : "s"} from the base directory.`
+          : `Showing ${entries.length} item${entries.length === 1 ? "" : "s"} from the current folder.`
     };
   } catch (error) {
     const code = typeof error === "object" && error && "code" in error ? error.code : undefined;
@@ -140,8 +224,11 @@ export async function getStorageDirectoryState(): Promise<StorageDirectoryState>
         status: "missing-directory",
         configuredBasePath,
         resolvedBasePath,
+        currentPath,
+        currentRelativeLabel: currentPath || "/",
+        breadcrumbs,
         entries: [],
-        message: "The configured base directory does not exist."
+        message: "The selected directory does not exist."
       };
     }
 
@@ -149,24 +236,27 @@ export async function getStorageDirectoryState(): Promise<StorageDirectoryState>
       status: "read-error",
       configuredBasePath,
       resolvedBasePath,
+      currentPath,
+      currentRelativeLabel: currentPath || "/",
+      breadcrumbs,
       entries: [],
-      message: "Failed to read the configured base directory."
+      message: "Failed to read the selected directory."
     };
   }
 }
 
-export async function uploadStorageFile(file: File) {
+export async function uploadStorageFile(file: File, currentPath = "") {
   if (!file || file.size <= 0) {
     throw new Error("Choose a file to upload.");
   }
 
   const fileName = path.basename(file.name).trim();
 
-  if (!isSafeEntryName(fileName)) {
+  if (!isSafeName(fileName)) {
     throw new Error("The selected file name is not allowed.");
   }
 
-  const targetPath = await resolveStorageEntryPath(fileName);
+  const { absolutePath: targetPath } = await resolveStorageEntryPath(fileName, currentPath);
   let alreadyExists = false;
 
   try {
@@ -192,21 +282,36 @@ export async function uploadStorageFile(file: File) {
   };
 }
 
-export async function deleteStorageEntry(name: string) {
-  const targetPath = await resolveStorageEntryPath(name);
+export async function createStorageDirectory(name: string, currentPath = "") {
+  const folderName = name.trim();
+
+  if (!isSafeName(folderName)) {
+    throw new Error("The folder name is not allowed.");
+  }
+
+  const { absolutePath } = await resolveStorageEntryPath(folderName, currentPath);
+  await fs.mkdir(absolutePath);
+
+  return {
+    message: `Created folder ${folderName}.`
+  };
+}
+
+export async function deleteStorageEntry(relativePath: string) {
+  const { absolutePath: targetPath } = await resolveStorageAbsolutePath(relativePath);
   const stats = await fs.stat(targetPath);
 
   if (stats.isDirectory()) {
     await fs.rm(targetPath, { recursive: false, force: false });
-    return { message: `Deleted directory ${name}.` };
+    return { message: `Deleted directory ${path.basename(targetPath)}.` };
   }
 
   await fs.unlink(targetPath);
-  return { message: `Deleted file ${name}.` };
+  return { message: `Deleted file ${path.basename(targetPath)}.` };
 }
 
-export async function getStorageFileStream(name: string) {
-  const filePath = await resolveStorageEntryPath(name);
+export async function getStorageFileStream(relativePath: string) {
+  const { absolutePath: filePath } = await resolveStorageAbsolutePath(relativePath);
   const stats = await fs.stat(filePath);
 
   if (!stats.isFile()) {
@@ -215,7 +320,7 @@ export async function getStorageFileStream(name: string) {
 
   return {
     filePath,
-    mimeType: guessMimeType(name),
+    mimeType: guessMimeType(path.basename(filePath)),
     size: stats.size,
     stream: createReadStream(filePath)
   };

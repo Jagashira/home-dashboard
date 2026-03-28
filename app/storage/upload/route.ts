@@ -1,12 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { uploadStorageFile } from "@/lib/storage";
-
-function buildNoticePath(outcome: "success" | "error", notice: string) {
-  const params = new URLSearchParams({ outcome, notice });
-  return `/storage?${params.toString()}`;
-}
+import { buildStoragePagePath, normalizeStoragePath, uploadStorageFile } from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
@@ -25,27 +20,29 @@ function getActionErrorMessage(error: unknown, fallback: string) {
 }
 
 export async function POST(request: Request) {
-  let destination = buildNoticePath("error", "Failed to upload the file.");
+  let destination = buildStoragePagePath("", "error", "Failed to upload the file.");
   let outcome: "success" | "error" = "error";
   let message = "Failed to upload the file.";
+  let currentPath = "";
 
   try {
     const formData = await request.formData();
     const selected = formData.get("file");
+    currentPath = normalizeStoragePath(String(formData.get("currentPath") ?? ""));
 
     if (!(selected instanceof File)) {
       message = "Choose a file to upload.";
-      destination = buildNoticePath("error", message);
+      destination = buildStoragePagePath(currentPath, "error", message);
     } else {
-      const result = await uploadStorageFile(selected);
+      const result = await uploadStorageFile(selected, currentPath);
       revalidatePath("/storage");
       outcome = "success";
       message = result.message;
-      destination = buildNoticePath("success", message);
+      destination = buildStoragePagePath(currentPath, "success", message);
     }
   } catch (error) {
     message = getActionErrorMessage(error, "Failed to upload the file.");
-    destination = buildNoticePath("error", message);
+    destination = buildStoragePagePath(currentPath, "error", message);
   }
 
   if (request.headers.get("x-storage-client") === "1") {

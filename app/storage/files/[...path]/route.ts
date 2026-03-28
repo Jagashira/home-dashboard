@@ -4,7 +4,7 @@ import { getStorageFileStream } from "@/lib/storage";
 
 type RouteProps = {
   params: Promise<{
-    name: string;
+    path: string[];
   }>;
 };
 
@@ -18,8 +18,8 @@ function parseRangeHeader(rangeHeader: string, size: number) {
   const startRaw = match[1];
   const endRaw = match[2];
 
-  let start = startRaw ? Number.parseInt(startRaw, 10) : NaN;
-  let end = endRaw ? Number.parseInt(endRaw, 10) : NaN;
+  let start = startRaw ? Number.parseInt(startRaw, 10) : Number.NaN;
+  let end = endRaw ? Number.parseInt(endRaw, 10) : Number.NaN;
 
   if (Number.isNaN(start) && Number.isNaN(end)) {
     return null;
@@ -49,8 +49,9 @@ function parseRangeHeader(rangeHeader: string, size: number) {
 
 export async function GET(request: Request, { params }: RouteProps) {
   try {
-    const { name } = await params;
-    const file = await getStorageFileStream(name);
+    const { path } = await params;
+    const relativePath = path.join("/");
+    const file = await getStorageFileStream(relativePath);
     const rangeHeader = request.headers.get("range");
 
     if (rangeHeader) {
@@ -78,7 +79,7 @@ export async function GET(request: Request, { params }: RouteProps) {
           "Content-Length": String(chunkSize),
           "Content-Range": `bytes ${range.start}-${range.end}/${file.size}`,
           "Content-Type": file.mimeType,
-          "Content-Disposition": `inline; filename="${encodeURIComponent(name)}"`,
+          "Content-Disposition": `inline; filename="${encodeURIComponent(relativePath.split("/").at(-1) ?? "file")}"`,
           "Cache-Control": "no-store"
         }
       });
@@ -89,7 +90,7 @@ export async function GET(request: Request, { params }: RouteProps) {
         "Accept-Ranges": "bytes",
         "Content-Length": String(file.size),
         "Content-Type": file.mimeType,
-        "Content-Disposition": `inline; filename="${encodeURIComponent(name)}"`,
+        "Content-Disposition": `inline; filename="${encodeURIComponent(relativePath.split("/").at(-1) ?? "file")}"`,
         "Cache-Control": "no-store"
       }
     });
