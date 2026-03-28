@@ -6,9 +6,14 @@ import { useRouter } from "next/navigation";
 type StorageCreateFolderFormProps = {
   currentPath: string;
   disabled: boolean;
+  compact?: boolean;
 };
 
-export function StorageCreateFolderForm({ currentPath, disabled }: StorageCreateFolderFormProps) {
+export function StorageCreateFolderForm({
+  currentPath,
+  disabled,
+  compact = false
+}: StorageCreateFolderFormProps) {
   const router = useRouter();
   const [folderName, setFolderName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -54,6 +59,28 @@ export function StorageCreateFolderForm({ currentPath, disabled }: StorageCreate
     } finally {
       setIsCreating(false);
     }
+  }
+
+  if (compact) {
+    return (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 xl:flex-row xl:items-center">
+        <input
+          type="text"
+          value={folderName}
+          onChange={(event) => setFolderName(event.target.value)}
+          placeholder="Folder name"
+          className="h-11 w-full rounded-2xl border border-white/35 bg-white/90 px-4 text-sm text-slate-700 shadow-sm outline-none ring-0 placeholder:text-slate-400"
+          disabled={disabled || isCreating}
+        />
+        <button
+          type="submit"
+          className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/18 px-4 text-sm font-semibold text-white backdrop-blur disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={disabled || isCreating}
+        >
+          {isCreating ? "Creating..." : "New Folder"}
+        </button>
+      </form>
+    );
   }
 
   return (
