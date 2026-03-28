@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { getStorageDirectoryState } from "@/lib/storage";
+import { StorageDeleteButton } from "@/app/storage/storage-delete-button";
+import { StorageUploadForm } from "@/app/storage/storage-upload-form";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +47,6 @@ function getStatusTone(status: Awaited<ReturnType<typeof getStorageDirectoryStat
     default:
       return "border-rose-200 bg-rose-50 text-rose-900";
   }
-}
-
-function buildNoticePath(outcome: "success" | "error", notice: string) {
-  const params = new URLSearchParams({ outcome, notice });
-  return `/storage?${params.toString()}`;
 }
 
 function getNoticeTone(outcome: string | undefined) {
@@ -111,41 +108,13 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
           </div>
 
           {notice ? (
-            <div className={`rounded-xl border p-4 text-sm font-medium ${getNoticeTone(params.outcome)}`}>
-              {notice}
-            </div>
+            <div className={`rounded-xl border p-4 text-sm font-medium ${getNoticeTone(params.outcome)}`}>{notice}</div>
           ) : null}
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-slate-900">Upload File</h2>
-              <p className="text-sm leading-6 text-slate-600">
-                Uploads are stored directly under the configured base directory. Existing file names
-                are protected from overwrite.
-              </p>
-            </div>
-
-            <form
-              action="/storage/upload"
-              method="post"
-              encType="multipart/form-data"
-              className="mt-4 flex flex-col gap-3 md:flex-row md:items-center"
-            >
-              <input
-                type="file"
-                name="file"
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700"
-                disabled={storage.status !== "ready"}
-              />
-              <button
-                type="submit"
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                disabled={storage.status !== "ready"}
-              >
-                Upload
-              </button>
-            </form>
-          </div>
+          <StorageUploadForm
+            disabled={storage.status !== "ready"}
+            initialNotice={notice ? { message: notice, outcome: params.outcome } : null}
+          />
         </Card>
 
         <Card className="overflow-hidden p-0">
@@ -198,15 +167,7 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
                             </span>
                           )}
 
-                          <form action="/storage/delete" method="post">
-                            <input type="hidden" name="name" value={entry.name} />
-                            <button
-                              type="submit"
-                              className="inline-flex items-center rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700"
-                            >
-                              Delete
-                            </button>
-                          </form>
+                          <StorageDeleteButton name={entry.name} />
                         </div>
                       </td>
                     </tr>

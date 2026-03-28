@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { uploadStorageFile } from "@/lib/storage";
 
 function buildNoticePath(outcome: "success" | "error", notice: string) {
@@ -25,21 +26,30 @@ function getActionErrorMessage(error: unknown, fallback: string) {
 
 export async function POST(request: Request) {
   let destination = buildNoticePath("error", "Failed to upload the file.");
+  let outcome: "success" | "error" = "error";
+  let message = "Failed to upload the file.";
 
   try {
     const formData = await request.formData();
     const selected = formData.get("file");
 
     if (!(selected instanceof File)) {
-      destination = buildNoticePath("error", "Choose a file to upload.");
+      message = "Choose a file to upload.";
+      destination = buildNoticePath("error", message);
     } else {
       const result = await uploadStorageFile(selected);
       revalidatePath("/storage");
-      destination = buildNoticePath("success", result.message);
+      outcome = "success";
+      message = result.message;
+      destination = buildNoticePath("success", message);
     }
   } catch (error) {
-    const message = getActionErrorMessage(error, "Failed to upload the file.");
+    message = getActionErrorMessage(error, "Failed to upload the file.");
     destination = buildNoticePath("error", message);
+  }
+
+  if (request.headers.get("x-storage-client") === "1") {
+    return NextResponse.json({ outcome, message }, { status: outcome === "success" ? 200 : 400 });
   }
 
   redirect(destination);

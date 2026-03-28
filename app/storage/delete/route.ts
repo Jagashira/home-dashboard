@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { deleteStorageEntry } from "@/lib/storage";
 
 function buildNoticePath(outcome: "success" | "error", notice: string) {
@@ -25,16 +26,24 @@ function getActionErrorMessage(error: unknown, fallback: string) {
 
 export async function POST(request: Request) {
   let destination = buildNoticePath("error", "Failed to delete the selected entry.");
+  let outcome: "success" | "error" = "error";
+  let message = "Failed to delete the selected entry.";
 
   try {
     const formData = await request.formData();
     const name = String(formData.get("name") ?? "");
     const result = await deleteStorageEntry(name);
     revalidatePath("/storage");
-    destination = buildNoticePath("success", result.message);
+    outcome = "success";
+    message = result.message;
+    destination = buildNoticePath("success", message);
   } catch (error) {
-    const message = getActionErrorMessage(error, "Failed to delete the selected entry.");
+    message = getActionErrorMessage(error, "Failed to delete the selected entry.");
     destination = buildNoticePath("error", message);
+  }
+
+  if (request.headers.get("x-storage-client") === "1") {
+    return NextResponse.json({ outcome, message }, { status: outcome === "success" ? 200 : 400 });
   }
 
   redirect(destination);
