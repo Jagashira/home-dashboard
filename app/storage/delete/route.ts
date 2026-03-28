@@ -28,11 +28,11 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const relativePath = String(formData.get("path") ?? "");
+    parentPath = relativePath.split("/").slice(0, -1).join("/");
     const result = await deleteStorageEntry(relativePath);
     revalidatePath("/storage");
     outcome = "success";
     message = result.message;
-    parentPath = relativePath.split("/").slice(0, -1).join("/");
     destination = buildStoragePagePath(parentPath, "success", message);
   } catch (error) {
     message = getActionErrorMessage(error, "Failed to delete the selected entry.");

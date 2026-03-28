@@ -14,6 +14,11 @@ export type StorageBreadcrumb = {
   path: string;
 };
 
+export type StorageDirectoryOption = {
+  path: string;
+  label: string;
+};
+
 export type StorageDirectoryState =
   | {
       status: "ready";
@@ -294,6 +299,102 @@ export async function createStorageDirectory(name: string, currentPath = "") {
 
   return {
     message: `Created folder ${folderName}.`
+  };
+}
+
+export async function listStorageDirectories(): Promise<StorageDirectoryOption[]> {
+  const { absolutePath: rootPath } = await resolveStorageAbsolutePath("");
+  const result: StorageDirectoryOption[] = [{ path: "", label: "/" }];
+
+  async function walk(currentAbsolutePath: string, currentRelativePath: string) {
+    const entries = await fs.readdir(currentAbsolutePath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      const relativePath = currentRelativePath ? `${currentRelativePath}/${entry.name}` : entry.name;
+      result.push({
+        path: relativePath,
+        label: `/${relativePath}`
+      });
+
+      await walk(path.join(currentAbsolutePath, entry.name), relativePath);
+    }
+  }
+
+  await walk(rootPath, "");
+
+  result.sort((a, b) => a.label.localeCompare(b.label, "ja"));
+  return result;
+}
+
+export async function renameStorageEntry(relativePath: string, nextName: string) {
+  const trimmedName = nextName.trim();
+  if (!isSafeName(trimmedName)) {
+    throw new Error("The new name is not allowed.");
+  }
+
+  const normalizedSourcePath = normalizeStoragePath(relativePath);
+  const parentPath = normalizedSourcePath.split("/").slice(0, -1).join("/");
+  const { absolutePath: sourceAbsolutePath } = await resolveStorageAbsolutePath(normalizedSourcePath);
+  const { absolutePath: destinationAbsolutePath } = await resolveStorageEntryPath(trimmedName, parentPath);
+
+  if (sourceAbsolutePath === destinationAbsolutePath) {
+    throw new Error("The new name is the same as the current one.");
+  }
+
+  await fs.rename(sourceAbsolutePath, destinationAbsolutePath);
+
+  return {
+    message: `Renamed to ${trimmedName}.`,
+    nextPath: parentPath ? `${parentPath}/${trimmedName}` : trimmedName
+  };
+}
+
+export async function moveStorageEntries(relativePaths: string[], targetPath: string) {
+  const normalizedTargetPath = normalizeStoragePath(targetPath);
+  const seen = new Set<string>();
+
+  for (const source of relativePaths.map((item) => normalizeStoragePath(item))) {
+    if (!source || seen.has(source)) {
+      continue;
+    }
+
+    seen.add(source);
+    const { absolutePath: sourceAbsolutePath } = await resolveStorageAbsolutePath(source);
+    const sourceName = path.basename(sourceAbsolutePath);
+    const { absolutePath: destinationAbsolutePath } = await resolveStorageEntryPath(sourceName, normalizedTargetPath);
+    let destinationExists = false;
+
+    if (sourceAbsolutePath === destinationAbsolutePath) {
+      continue;
+    }
+
+    if (normalizedTargetPath === source || normalizedTargetPath.startsWith(`${source}/`)) {
+      throw new Error("Cannot move a folder into itself.");
+    }
+
+    try {
+      await fs.access(destinationAbsolutePath);
+      destinationExists = true;
+    } catch (error) {
+      const code = typeof error === "object" && error && "code" in error ? error.code : undefined;
+      if (code && code !== "ENOENT") {
+        throw error;
+      }
+    }
+
+    if (destinationExists) {
+      throw new Error(`An item named ${sourceName} already exists in the target folder.`);
+    }
+
+    await fs.rename(sourceAbsolutePath, destinationAbsolutePath);
+  }
+
+  return {
+    message: `Moved ${seen.size} item${seen.size === 1 ? "" : "s"}.`
   };
 }
 

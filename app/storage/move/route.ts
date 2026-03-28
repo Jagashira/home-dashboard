@@ -1,19 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { buildStoragePagePath, createStorageDirectory, normalizeStoragePath } from "@/lib/storage";
+import { buildStoragePagePath, moveStorageEntries, normalizeStoragePath } from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
     const code = error.code;
-
-    if (code === "EROFS") {
-      return "The storage directory is mounted read-only, so folder creation is currently disabled.";
-    }
-
-    if (code === "EEXIST") {
-      return "A folder with the same name already exists.";
-    }
 
     if (code === "EACCES" || code === "EPERM") {
       return "The app does not have permission to modify the storage directory.";
@@ -24,23 +16,23 @@ function getActionErrorMessage(error: unknown, fallback: string) {
 }
 
 export async function POST(request: Request) {
-  let destination = buildStoragePagePath("", "error", "Failed to create the folder.");
+  let destination = buildStoragePagePath("", "error", "Failed to move the selected entries.");
   let outcome: "success" | "error" = "error";
-  let message = "Failed to create the folder.";
-  let currentPath = "";
+  let message = "Failed to move the selected entries.";
+  let targetPath = "";
 
   try {
     const formData = await request.formData();
-    const name = String(formData.get("name") ?? "");
-    currentPath = normalizeStoragePath(String(formData.get("currentPath") ?? ""));
-    const result = await createStorageDirectory(name, currentPath);
+    const paths = formData.getAll("paths").map((item) => String(item));
+    targetPath = normalizeStoragePath(String(formData.get("targetPath") ?? ""));
+    const result = await moveStorageEntries(paths, targetPath);
     revalidatePath("/storage");
     outcome = "success";
     message = result.message;
-    destination = buildStoragePagePath(currentPath, "success", message);
+    destination = buildStoragePagePath(targetPath, "success", message);
   } catch (error) {
-    message = getActionErrorMessage(error, "Failed to create the folder.");
-    destination = buildStoragePagePath(currentPath, "error", message);
+    message = getActionErrorMessage(error, "Failed to move the selected entries.");
+    destination = buildStoragePagePath(targetPath, "error", message);
   }
 
   if (request.headers.get("x-storage-client") === "1") {

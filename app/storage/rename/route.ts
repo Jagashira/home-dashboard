@@ -1,18 +1,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { buildStoragePagePath, createStorageDirectory, normalizeStoragePath } from "@/lib/storage";
+import { buildStoragePagePath, renameStorageEntry } from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
     const code = error.code;
 
-    if (code === "EROFS") {
-      return "The storage directory is mounted read-only, so folder creation is currently disabled.";
-    }
-
     if (code === "EEXIST") {
-      return "A folder with the same name already exists.";
+      return "An item with the same name already exists.";
     }
 
     if (code === "EACCES" || code === "EPERM") {
@@ -24,23 +20,24 @@ function getActionErrorMessage(error: unknown, fallback: string) {
 }
 
 export async function POST(request: Request) {
-  let destination = buildStoragePagePath("", "error", "Failed to create the folder.");
+  let destination = buildStoragePagePath("", "error", "Failed to rename the selected entry.");
   let outcome: "success" | "error" = "error";
-  let message = "Failed to create the folder.";
-  let currentPath = "";
+  let message = "Failed to rename the selected entry.";
+  let parentPath = "";
 
   try {
     const formData = await request.formData();
-    const name = String(formData.get("name") ?? "");
-    currentPath = normalizeStoragePath(String(formData.get("currentPath") ?? ""));
-    const result = await createStorageDirectory(name, currentPath);
+    const relativePath = String(formData.get("path") ?? "");
+    parentPath = relativePath.split("/").slice(0, -1).join("/");
+    const nextName = String(formData.get("name") ?? "");
+    const result = await renameStorageEntry(relativePath, nextName);
     revalidatePath("/storage");
     outcome = "success";
     message = result.message;
-    destination = buildStoragePagePath(currentPath, "success", message);
+    destination = buildStoragePagePath(parentPath, "success", message);
   } catch (error) {
-    message = getActionErrorMessage(error, "Failed to create the folder.");
-    destination = buildStoragePagePath(currentPath, "error", message);
+    message = getActionErrorMessage(error, "Failed to rename the selected entry.");
+    destination = buildStoragePagePath(parentPath, "error", message);
   }
 
   if (request.headers.get("x-storage-client") === "1") {
