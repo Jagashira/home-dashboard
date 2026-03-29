@@ -33,15 +33,6 @@ export const APP_CONFIG = {
   haNewsUri: process.env.HA_NEWS_URI || "/dashboard-mobile/news",
   immichBaseUrl: process.env.IMMICH_BASE_URL || process.env.NEXT_PUBLIC_IMMICH_URL || "",
   immichApiKey: process.env.IMMICH_API_KEY || "",
-  systemStatusSecret: process.env.SYSTEM_STATUS_SECRET || "",
-  monitoredServices: splitCsv(process.env.MONITORED_SYSTEMD_SERVICES, ["glances", "home-platform", "docker"]),
-  monitoredContainers: splitCsv(process.env.MONITORED_DOCKER_CONTAINERS, [
-    "news-aggregator",
-    "immich_server",
-    "immich_machine_learning",
-    "immich_postgres",
-    "immich_redis"
-  ]),
   openAiApiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API || "",
   newsApiKey: process.env.NEWS_API_KEY || "",
   youtubeApiKey: process.env.YOUTUBE_API_KEY || "",

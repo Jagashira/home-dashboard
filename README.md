@@ -74,9 +74,6 @@ HA_TASK_URI=/dashboard-mobile/tasks
 HA_NEWS_URI=/dashboard-mobile/news
 IMMICH_BASE_URL=
 IMMICH_API_KEY=
-SYSTEM_STATUS_SECRET=
-MONITORED_SYSTEMD_SERVICES=glances,home-platform,docker
-MONITORED_DOCKER_CONTAINERS=news-aggregator,immich_server,immich_machine_learning,immich_postgres,immich_redis
 ```
 
 - `NEWS_API_KEY` が未設定でも動作します（NewsAPIソースは自動スキップ）。
@@ -84,8 +81,6 @@ MONITORED_DOCKER_CONTAINERS=news-aggregator,immich_server,immich_machine_learnin
 - GPT 使用量のホーム表示は `OPENAI_ADMIN_API_KEY` だけで取得します。表示するのは「今日の使用料金」「今月の使用料金」「token数」です。
 - `STORAGE_BASE_PATH` は `/storage` ページが読むベースディレクトリです。Mac 開発では `./data/storage-dev` のようなローカルディレクトリ、home-server では NAS 側の実パスを設定してください。
 - `IMMICH_BASE_URL` と `IMMICH_API_KEY` を設定すると、ホーム画面と `GET /api/immich/summary` で Immich の storage/statistics を表示できます。
-- `SYSTEM_STATUS_SECRET` を設定すると、`GET /api/system/status` に `x-system-status-secret` か `?secret=` が必要になります。
-- `MONITORED_SYSTEMD_SERVICES` と `MONITORED_DOCKER_CONTAINERS` は監視対象をカンマ区切りで上書きできます。
 
 ## 開発環境起動
 
@@ -224,7 +219,6 @@ automation:
 - `GET /api/news/:id`
 - `GET /api/immich/summary`
 - `GET /api/review/weekly`
-- `GET /api/system/status`
 - `GET /api/settings`
 - `PUT /api/settings`
 - `POST /api/fetch`
