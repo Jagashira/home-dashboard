@@ -3,6 +3,7 @@ import { getBillingCategorySummaries, formatYen } from "@/lib/home-billing";
 import { getLatestFetchRun } from "@/lib/repositories/fetch-runs";
 import { getSettings } from "@/lib/repositories/settings";
 import { listTables } from "@/lib/db-browser";
+import { getImmichSummary } from "@/lib/immich";
 
 export type HomeQuickStatus = {
   title: string;
@@ -64,7 +65,11 @@ function formatRelativeShort(value: string | null) {
 }
 
 export async function getHomeDashboardData(now = new Date()): Promise<HomeDashboardData> {
-  const [planner, settings] = await Promise.all([getPlannerSnapshot(now), Promise.resolve(getSettings())]);
+  const [planner, settings, immich] = await Promise.all([
+    getPlannerSnapshot(now),
+    Promise.resolve(getSettings()),
+    getImmichSummary().catch(() => null)
+  ]);
   const latestRun = getLatestFetchRun();
   const tableCount = listTables().length;
 
@@ -85,6 +90,14 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
   const recommendedTitle = planner.recommendedNow?.title ?? "優先タスクはまだありません";
   const newsCount = latestRun?.total_fetched ?? 0;
   const alertCount = planner.attentionCount;
+  const immichStorageDetail =
+    immich?.available
+      ? `${immich.storage.usedLabel} / ${immich.storage.totalLabel}`
+      : "Immich 接続待ち";
+  const immichAssetsDetail =
+    immich?.available
+      ? `写真 ${immich.stats.photos.toLocaleString("ja-JP")} / 動画 ${immich.stats.videos.toLocaleString("ja-JP")}`
+      : "ライブラリ未接続";
   const openAiUsage = {
     href: "https://platform.openai.com/usage",
     available: false,
@@ -114,6 +127,11 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         label: "請求確認",
         value: billingSummaryText,
         note: billingActiveCount > 0 ? `${billingActiveCount} カテゴリを確認可能` : "請求データ待ち"
+      },
+      {
+        label: "Storage",
+        value: immich?.available ? immich.storage.usageLabel : "未接続",
+        note: immichStorageDetail
       }
     ],
     primaryActions: [
@@ -152,6 +170,22 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         detail: latestRun ? `設定: ${settings.totalRequested} 件取得` : "まだ最新取得なし",
         href: "/news",
         tone: "blue"
+      },
+      {
+        title: "Storage",
+        label: "NAS",
+        value: immich?.available ? immich.storage.usageLabel : "未接続",
+        detail: immichStorageDetail,
+        href: "/storage",
+        tone: immich?.available ? "green" : "neutral"
+      },
+      {
+        title: "Immich",
+        label: "Photos",
+        value: immich?.available ? `${immich.stats.assets.toLocaleString("ja-JP")}` : "未接続",
+        detail: immichAssetsDetail,
+        href: immich?.href || "/storage",
+        tone: immich?.available ? "blue" : "neutral"
       },
       {
         title: "GPT",
@@ -204,6 +238,18 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         tone: "neutral"
       },
       {
+        title: "Immich",
+        href: immich?.href || "/storage",
+        eyebrow: "Storage",
+        description: immich?.available
+          ? `NAS ${immich.storage.usedLabel} / ${immich.storage.totalLabel} ・ 写真 ${immich.stats.photos.toLocaleString("ja-JP")} / 動画 ${immich.stats.videos.toLocaleString("ja-JP")}`
+          : "Immich API を接続すると、NAS 使用量と写真・動画の件数を表示します。",
+        meta: immich?.version ? `Immich ${immich.version}` : "Immich summary",
+        stat: immich?.available ? immich.storage.usageLabel : "未接続",
+        variant: "status",
+        tone: immich?.available ? "green" : "neutral"
+      },
+      {
         title: "GPT",
         href: openAiUsage.href,
         eyebrow: "Usage",
@@ -229,6 +275,11 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         title: "Shop",
         href: "/shop",
         description: "買い物メモと候補整理"
+      },
+      {
+        title: "Storage",
+        href: "/storage",
+        description: immich?.available ? `NAS ${immich.storage.availableLabel} 空き / Immich ${immich.stats.usageLabel}` : "ストレージと Photos への入口"
       },
       {
         title: "Admin",

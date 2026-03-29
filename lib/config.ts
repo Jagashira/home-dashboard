@@ -23,6 +23,8 @@ export const APP_CONFIG = {
   haExpenseUri: process.env.HA_EXPENSE_URI || "/dashboard-mobile/expense",
   haTaskUri: process.env.HA_TASK_URI || "/dashboard-mobile/tasks",
   haNewsUri: process.env.HA_NEWS_URI || "/dashboard-mobile/news",
+  immichBaseUrl: process.env.IMMICH_BASE_URL || process.env.NEXT_PUBLIC_IMMICH_URL || "",
+  immichApiKey: process.env.IMMICH_API_KEY || "",
   openAiApiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API || "",
   newsApiKey: process.env.NEWS_API_KEY || "",
   youtubeApiKey: process.env.YOUTUBE_API_KEY || "",

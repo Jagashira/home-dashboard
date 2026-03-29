@@ -117,7 +117,7 @@ function DownloadIcon() {
 
 function MoreIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
       <path d="M6 10.5A1.5 1.5 0 1 1 6 13.5 1.5 1.5 0 0 1 6 10.5m6 0A1.5 1.5 0 1 1 12 13.5 1.5 1.5 0 0 1 12 10.5m6 0A1.5 1.5 0 1 1 18 13.5 1.5 1.5 0 0 1 18 10.5" />
     </svg>
   );
@@ -658,7 +658,7 @@ export function StorageDrivePanel({
                   type="button"
                   onClick={() => setFilterKind(item)}
                   className={[
-                    "rounded-full px-3 py-2 text-xs font-medium",
+                    "inline-flex h-10 items-center rounded-full px-4 text-sm font-medium",
                     filterKind === item ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
                   ].join(" ")}
                 >
@@ -842,9 +842,6 @@ export function StorageDrivePanel({
                     }}
                     onContextMenu={(event) => {
                       event.preventDefault();
-                      setSelectedPaths((current) =>
-                        current.includes(entry.relativePath) ? current : [entry.relativePath]
-                      );
                       setMenuState({
                         path: entry.relativePath,
                         x: event.clientX,
@@ -957,14 +954,24 @@ export function StorageDrivePanel({
                         <button
                           type="button"
                           onClick={(event) => {
+                            event.stopPropagation();
                             const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
                             setMenuState((currentMenuState) =>
                               currentMenuState?.path === entry.relativePath
                                 ? null
-                                : { path: entry.relativePath, x: rect.right - 176, y: rect.bottom + 8 }
-                            );
+                                  : {
+                                      path: entry.relativePath,
+                                      x: rect.right - 176,
+                                      y: Math.max(16, rect.top)
+                                    }
+                              );
                           }}
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-slate-100 hover:text-slate-900"
+                          className={[
+                            "inline-flex h-10 min-w-[40px] items-center justify-center rounded-full px-3 align-middle text-slate-500 transition",
+                            isMenuOpen
+                              ? "bg-slate-100 text-slate-900 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)]"
+                              : "hover:bg-slate-100 hover:text-slate-900"
+                          ].join(" ")}
                         >
                           <MoreIcon />
                         </button>
