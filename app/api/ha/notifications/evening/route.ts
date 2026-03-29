@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         data: {
           tag: "daily-evening-checkin",
           group: "daily-checkins",
-          url: APP_CONFIG.haHomeUri,
+          url: APP_CONFIG.haTaskUri,
           actions: [
             buildUriAction("支出を入力", APP_CONFIG.haExpenseUri),
             buildUriAction("taskを追加", APP_CONFIG.haTaskUri)
