@@ -1,7 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { buildStoragePagePath, normalizeStoragePath, uploadStorageFile } from "@/lib/storage";
+import {
+  buildStoragePagePath,
+  normalizeStorageLibrary,
+  normalizeStoragePath,
+  uploadStorageFile
+} from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
@@ -24,25 +29,27 @@ export async function POST(request: Request) {
   let outcome: "success" | "error" = "error";
   let message = "Failed to upload the file.";
   let currentPath = "";
+  let library = normalizeStorageLibrary("storage");
 
   try {
     const formData = await request.formData();
     const selected = formData.get("file");
     currentPath = normalizeStoragePath(String(formData.get("currentPath") ?? ""));
+    library = normalizeStorageLibrary(String(formData.get("library") ?? "storage"));
 
     if (!(selected instanceof File)) {
       message = "Choose a file to upload.";
-      destination = buildStoragePagePath(currentPath, "error", message);
+      destination = buildStoragePagePath(currentPath, "error", message, library);
     } else {
-      const result = await uploadStorageFile(selected, currentPath);
+      const result = await uploadStorageFile(selected, currentPath, library);
       revalidatePath("/storage");
       outcome = "success";
       message = result.message;
-      destination = buildStoragePagePath(currentPath, "success", message);
+      destination = buildStoragePagePath(currentPath, "success", message, library);
     }
   } catch (error) {
     message = getActionErrorMessage(error, "Failed to upload the file.");
-    destination = buildStoragePagePath(currentPath, "error", message);
+    destination = buildStoragePagePath(currentPath, "error", message, library);
   }
 
   if (request.headers.get("x-storage-client") === "1") {

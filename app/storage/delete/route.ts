@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { buildStoragePagePath, deleteStorageEntry } from "@/lib/storage";
+import { buildStoragePagePath, deleteStorageEntry, normalizeStorageLibrary } from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
@@ -24,19 +24,21 @@ export async function POST(request: Request) {
   let outcome: "success" | "error" = "error";
   let message = "Failed to delete the selected entry.";
   let parentPath = "";
+  let library = normalizeStorageLibrary("storage");
 
   try {
     const formData = await request.formData();
     const relativePath = String(formData.get("path") ?? "");
+    library = normalizeStorageLibrary(String(formData.get("library") ?? "storage"));
     parentPath = relativePath.split("/").slice(0, -1).join("/");
-    const result = await deleteStorageEntry(relativePath);
+    const result = await deleteStorageEntry(relativePath, library);
     revalidatePath("/storage");
     outcome = "success";
     message = result.message;
-    destination = buildStoragePagePath(parentPath, "success", message);
+    destination = buildStoragePagePath(parentPath, "success", message, library);
   } catch (error) {
     message = getActionErrorMessage(error, "Failed to delete the selected entry.");
-    destination = buildStoragePagePath(parentPath, "error", message);
+    destination = buildStoragePagePath(parentPath, "error", message, library);
   }
 
   if (request.headers.get("x-storage-client") === "1") {

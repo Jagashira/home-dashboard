@@ -1,7 +1,11 @@
-import { getStorageDirectoryState, listStorageDirectories } from "@/lib/storage";
-import { StorageCreateFolderForm } from "@/app/storage/storage-create-folder-form";
+import Link from "next/link";
+import {
+  getStorageDirectoryState,
+  getStorageLibraries,
+  listStorageDirectories,
+  normalizeStorageLibrary
+} from "@/lib/storage";
 import { StorageDrivePanel } from "@/app/storage/storage-drive-panel";
-import { StorageUploadForm } from "@/app/storage/storage-upload-form";
 import { StorageHeaderActions } from "@/app/storage/storage-header-actions";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +15,7 @@ type StoragePageProps = {
     notice?: string;
     outcome?: string;
     path?: string;
+    library?: string;
   }>;
 };
 
@@ -35,9 +40,11 @@ function getNoticeTone(outcome: string | undefined) {
 
 export default async function StoragePage({ searchParams }: StoragePageProps) {
   const params = (await searchParams) ?? {};
+  const currentLibrary = normalizeStorageLibrary(params.library);
   const currentPath = params.path ?? "";
-  const storage = await getStorageDirectoryState(currentPath);
-  const directories = storage.status === "ready" ? await listStorageDirectories() : [];
+  const storage = await getStorageDirectoryState(currentPath, currentLibrary);
+  const directories = storage.status === "ready" ? await listStorageDirectories(currentLibrary) : [];
+  const libraries = getStorageLibraries(currentLibrary);
   const notice = params.notice?.trim();
 
   return (
@@ -55,14 +62,43 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
             </div>
 
             <StorageHeaderActions
+              libraryKey={storage.libraryKey}
               currentPath={storage.currentPath}
-              disabled={storage.status !== "ready"}
+              disabled={storage.status !== "ready" || storage.readOnly}
               initialNotice={notice ? { message: notice, outcome: params.outcome } : null}
             />
           </div>
         </header>
 
         <div className="space-y-3 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center gap-2">
+            {libraries.map((library) =>
+              library.external ? (
+                <a
+                  key={library.key}
+                  href={library.href}
+                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  {library.label}
+                </a>
+              ) : (
+                <Link
+                  key={library.key}
+                  href={library.href}
+                  className={[
+                    "inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium transition hover:no-underline",
+                    library.key === storage.libraryKey
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ].join(" ")}
+                >
+                  {library.label}
+                  {library.readOnly ? <span className="ml-2 text-xs text-slate-400">read-only</span> : null}
+                </Link>
+              )
+            )}
+          </div>
+
           <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${getStatusTone(storage.status)}`}>
             <p>{storage.message}</p>
           </div>
@@ -74,6 +110,9 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
           ) : null}
 
           <StorageDrivePanel
+            libraryKey={storage.libraryKey}
+            libraryLabel={storage.libraryLabel}
+            readOnly={storage.readOnly}
             currentPath={storage.currentPath}
             entries={storage.entries}
             directories={directories}

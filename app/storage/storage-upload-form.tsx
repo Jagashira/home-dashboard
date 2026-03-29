@@ -2,8 +2,10 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { StorageLibraryKey } from "@/lib/storage";
 
 type StorageUploadFormProps = {
+  libraryKey: StorageLibraryKey;
   currentPath: string;
   disabled: boolean;
   compact?: boolean;
@@ -29,6 +31,7 @@ function getNoticeTone(outcome: UploadState["outcome"]) {
 }
 
 export function StorageUploadForm({
+  libraryKey,
   currentPath,
   disabled,
   compact = false,
@@ -49,6 +52,7 @@ export function StorageUploadForm({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("currentPath", currentPath);
+      formData.append("library", libraryKey);
 
       const request = new XMLHttpRequest();
       request.open("POST", "/storage/upload");

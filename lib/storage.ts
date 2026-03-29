@@ -1,6 +1,24 @@
 import { createReadStream, promises as fs } from "node:fs";
 import path from "node:path";
 
+export type StorageLibraryKey = "storage" | "backup";
+
+export type StorageLibraryNavItem = {
+  key: StorageLibraryKey | "photos";
+  label: string;
+  href: string;
+  readOnly: boolean;
+  external?: boolean;
+};
+
+type StorageLibraryConfig = {
+  key: StorageLibraryKey;
+  label: string;
+  readOnly: boolean;
+  configuredBasePath: string | null;
+  resolvedBasePath: string | null;
+};
+
 export type StorageItem = {
   name: string;
   relativePath: string;
@@ -22,6 +40,9 @@ export type StorageDirectoryOption = {
 export type StorageDirectoryState =
   | {
       status: "ready";
+      libraryKey: StorageLibraryKey;
+      libraryLabel: string;
+      readOnly: boolean;
       configuredBasePath: string;
       resolvedBasePath: string;
       currentPath: string;
@@ -32,6 +53,9 @@ export type StorageDirectoryState =
     }
   | {
       status: "missing-env" | "missing-directory" | "read-error";
+      libraryKey: StorageLibraryKey;
+      libraryLabel: string;
+      readOnly: boolean;
       configuredBasePath: string | null;
       resolvedBasePath: string | null;
       currentPath: string;
@@ -70,6 +94,14 @@ function resolveBasePath(basePath: string) {
   return path.isAbsolute(basePath) ? basePath : path.resolve(process.cwd(), basePath);
 }
 
+function getPhotosAppUrl() {
+  return (
+    process.env.IMMICH_BASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_IMMICH_URL?.trim() ||
+    "/immich"
+  );
+}
+
 function isSafeName(name: string) {
   return Boolean(name) && path.basename(name) === name && !name.includes("/") && !name.includes("\\");
 }
@@ -95,9 +127,84 @@ export function normalizeStoragePath(input?: string | null) {
   return normalized;
 }
 
-function buildBreadcrumbs(currentPath: string): StorageBreadcrumb[] {
+export function normalizeStorageLibrary(input?: string | null): StorageLibraryKey {
+  return input === "backup" ? "backup" : "storage";
+}
+
+function getStorageLibraryConfig(libraryKey: StorageLibraryKey): StorageLibraryConfig {
+  const storageConfiguredBasePath = process.env.STORAGE_BASE_PATH?.trim() ?? null;
+
+  if (!storageConfiguredBasePath) {
+    return {
+      key: libraryKey,
+      label: libraryKey === "backup" ? "Backup" : "Storage",
+      readOnly: libraryKey === "backup",
+      configuredBasePath: null,
+      resolvedBasePath: null
+    };
+  }
+
+  const resolvedStorageBasePath = resolveBasePath(storageConfiguredBasePath);
+
+  if (libraryKey === "backup") {
+    const resolvedBackupBasePath = path.resolve(path.dirname(resolvedStorageBasePath), "backup");
+    return {
+      key: "backup",
+      label: "Backup",
+      readOnly: true,
+      configuredBasePath: resolvedBackupBasePath,
+      resolvedBasePath: resolvedBackupBasePath
+    };
+  }
+
+  return {
+    key: "storage",
+    label: "Storage",
+    readOnly: false,
+    configuredBasePath: storageConfiguredBasePath,
+    resolvedBasePath: resolvedStorageBasePath
+  };
+}
+
+export function getStorageLibraries(currentLibrary: StorageLibraryKey): StorageLibraryNavItem[] {
+  const photosHref = getPhotosAppUrl();
+
+  const items: StorageLibraryNavItem[] = [
+    {
+      key: "storage",
+      label: "Storage",
+      href: "/storage?library=storage",
+      readOnly: false
+    },
+    {
+      key: "backup",
+      label: "Backup",
+      href: "/storage?library=backup",
+      readOnly: true
+    },
+    {
+      key: "photos",
+      label: "Photos",
+      href: photosHref,
+      readOnly: true,
+      external: !photosHref.startsWith("/")
+    }
+  ];
+
+  return items.map((item) => ({
+    ...item,
+    href:
+      item.key === "photos"
+        ? item.href
+        : item.key === currentLibrary
+          ? `/storage?library=${item.key}`
+          : item.href
+  }));
+}
+
+function buildBreadcrumbs(currentPath: string, rootLabel: string): StorageBreadcrumb[] {
   const segments = currentPath ? currentPath.split("/") : [];
-  const breadcrumbs: StorageBreadcrumb[] = [{ label: "Storage", path: "" }];
+  const breadcrumbs: StorageBreadcrumb[] = [{ label: rootLabel, path: "" }];
 
   segments.forEach((segment, index) => {
     breadcrumbs.push({
@@ -109,8 +216,13 @@ function buildBreadcrumbs(currentPath: string): StorageBreadcrumb[] {
   return breadcrumbs;
 }
 
-export function buildStoragePagePath(pathname: string, outcome: "success" | "error", notice: string) {
-  const params = new URLSearchParams({ outcome, notice });
+export function buildStoragePagePath(
+  pathname: string,
+  outcome: "success" | "error",
+  notice: string,
+  library: StorageLibraryKey = "storage"
+) {
+  const params = new URLSearchParams({ outcome, notice, library });
   const normalizedPath = normalizeStoragePath(pathname);
   if (normalizedPath) {
     params.set("path", normalizedPath);
@@ -123,20 +235,19 @@ export function guessMimeType(name: string) {
   return MIME_TYPES[path.extname(name).toLowerCase()] ?? "application/octet-stream";
 }
 
-export async function getResolvedStorageBasePath() {
-  const configuredBasePath = process.env.STORAGE_BASE_PATH?.trim();
-
-  if (!configuredBasePath) {
+export async function getResolvedStorageBasePath(library: StorageLibraryKey = "storage") {
+  const config = getStorageLibraryConfig(library);
+  if (!config.resolvedBasePath) {
     throw new Error("STORAGE_BASE_PATH is not configured.");
   }
 
-  const resolvedBasePath = resolveBasePath(configuredBasePath);
+  const resolvedBasePath = config.resolvedBasePath;
   await fs.access(resolvedBasePath);
   return resolvedBasePath;
 }
 
-async function resolveStorageAbsolutePath(relativePath = "") {
-  const basePath = await getResolvedStorageBasePath();
+async function resolveStorageAbsolutePath(relativePath = "", library: StorageLibraryKey = "storage") {
+  const basePath = await getResolvedStorageBasePath(library);
   const normalizedPath = normalizeStoragePath(relativePath);
   const absolutePath = path.resolve(basePath, normalizedPath);
 
@@ -151,23 +262,34 @@ async function resolveStorageAbsolutePath(relativePath = "") {
   };
 }
 
-export async function resolveStorageEntryPath(name: string, currentPath = "") {
+export async function resolveStorageEntryPath(
+  name: string,
+  currentPath = "",
+  library: StorageLibraryKey = "storage"
+) {
   if (!isSafeName(name)) {
     throw new Error("Invalid storage entry name.");
   }
 
   const parentPath = normalizeStoragePath(currentPath);
-  return resolveStorageAbsolutePath(parentPath ? `${parentPath}/${name}` : name);
+  return resolveStorageAbsolutePath(parentPath ? `${parentPath}/${name}` : name, library);
 }
 
-export async function getStorageDirectoryState(relativePath = ""): Promise<StorageDirectoryState> {
-  const configuredBasePath = process.env.STORAGE_BASE_PATH?.trim();
+export async function getStorageDirectoryState(
+  relativePath = "",
+  library: StorageLibraryKey = "storage"
+): Promise<StorageDirectoryState> {
+  const config = getStorageLibraryConfig(library);
+  const configuredBasePath = config.configuredBasePath;
   const currentPath = normalizeStoragePath(relativePath);
-  const breadcrumbs = buildBreadcrumbs(currentPath);
+  const breadcrumbs = buildBreadcrumbs(currentPath, config.label);
 
   if (!configuredBasePath) {
     return {
       status: "missing-env",
+      libraryKey: library,
+      libraryLabel: config.label,
+      readOnly: config.readOnly,
       configuredBasePath: null,
       resolvedBasePath: null,
       currentPath,
@@ -179,10 +301,10 @@ export async function getStorageDirectoryState(relativePath = ""): Promise<Stora
     };
   }
 
-  const resolvedBasePath = resolveBasePath(configuredBasePath);
+  const resolvedBasePath = config.resolvedBasePath!;
 
   try {
-    const { absolutePath } = await resolveStorageAbsolutePath(currentPath);
+    const { absolutePath } = await resolveStorageAbsolutePath(currentPath, library);
     const directoryEntries = await fs.readdir(absolutePath, { withFileTypes: true });
     const entries = await Promise.all(
       directoryEntries.map(async (entry) => {
@@ -210,6 +332,9 @@ export async function getStorageDirectoryState(relativePath = ""): Promise<Stora
 
     return {
       status: "ready",
+      libraryKey: library,
+      libraryLabel: config.label,
+      readOnly: config.readOnly,
       configuredBasePath,
       resolvedBasePath,
       currentPath,
@@ -227,6 +352,9 @@ export async function getStorageDirectoryState(relativePath = ""): Promise<Stora
     if (code === "ENOENT") {
       return {
         status: "missing-directory",
+        libraryKey: library,
+        libraryLabel: config.label,
+        readOnly: config.readOnly,
         configuredBasePath,
         resolvedBasePath,
         currentPath,
@@ -239,6 +367,9 @@ export async function getStorageDirectoryState(relativePath = ""): Promise<Stora
 
     return {
       status: "read-error",
+      libraryKey: library,
+      libraryLabel: config.label,
+      readOnly: config.readOnly,
       configuredBasePath,
       resolvedBasePath,
       currentPath,
@@ -250,7 +381,19 @@ export async function getStorageDirectoryState(relativePath = ""): Promise<Stora
   }
 }
 
-export async function uploadStorageFile(file: File, currentPath = "") {
+function assertStorageWritable(library: StorageLibraryKey) {
+  const config = getStorageLibraryConfig(library);
+  if (config.readOnly) {
+    throw new Error(`${config.label} is read-only.`);
+  }
+}
+
+export async function uploadStorageFile(
+  file: File,
+  currentPath = "",
+  library: StorageLibraryKey = "storage"
+) {
+  assertStorageWritable(library);
   if (!file || file.size <= 0) {
     throw new Error("Choose a file to upload.");
   }
@@ -261,7 +404,10 @@ export async function uploadStorageFile(file: File, currentPath = "") {
     throw new Error("The selected file name is not allowed.");
   }
 
-  const { absolutePath: targetPath } = await resolveStorageEntryPath(fileName, currentPath);
+  const { absolutePath: targetPath } = await resolveStorageAbsolutePath(
+    currentPath ? `${normalizeStoragePath(currentPath)}/${fileName}` : fileName,
+    library
+  );
   let alreadyExists = false;
 
   try {
@@ -287,14 +433,19 @@ export async function uploadStorageFile(file: File, currentPath = "") {
   };
 }
 
-export async function createStorageDirectory(name: string, currentPath = "") {
+export async function createStorageDirectory(
+  name: string,
+  currentPath = "",
+  library: StorageLibraryKey = "storage"
+) {
+  assertStorageWritable(library);
   const folderName = name.trim();
 
   if (!isSafeName(folderName)) {
     throw new Error("The folder name is not allowed.");
   }
 
-  const { absolutePath } = await resolveStorageEntryPath(folderName, currentPath);
+  const { absolutePath } = await resolveStorageEntryPath(folderName, currentPath, library);
   await fs.mkdir(absolutePath);
 
   return {
@@ -302,8 +453,10 @@ export async function createStorageDirectory(name: string, currentPath = "") {
   };
 }
 
-export async function listStorageDirectories(): Promise<StorageDirectoryOption[]> {
-  const { absolutePath: rootPath } = await resolveStorageAbsolutePath("");
+export async function listStorageDirectories(
+  library: StorageLibraryKey = "storage"
+): Promise<StorageDirectoryOption[]> {
+  const { absolutePath: rootPath } = await resolveStorageAbsolutePath("", library);
   const result: StorageDirectoryOption[] = [{ path: "", label: "/" }];
 
   async function walk(currentAbsolutePath: string, currentRelativePath: string) {
@@ -330,7 +483,12 @@ export async function listStorageDirectories(): Promise<StorageDirectoryOption[]
   return result;
 }
 
-export async function renameStorageEntry(relativePath: string, nextName: string) {
+export async function renameStorageEntry(
+  relativePath: string,
+  nextName: string,
+  library: StorageLibraryKey = "storage"
+) {
+  assertStorageWritable(library);
   const trimmedName = nextName.trim();
   if (!isSafeName(trimmedName)) {
     throw new Error("The new name is not allowed.");
@@ -338,8 +496,8 @@ export async function renameStorageEntry(relativePath: string, nextName: string)
 
   const normalizedSourcePath = normalizeStoragePath(relativePath);
   const parentPath = normalizedSourcePath.split("/").slice(0, -1).join("/");
-  const { absolutePath: sourceAbsolutePath } = await resolveStorageAbsolutePath(normalizedSourcePath);
-  const { absolutePath: destinationAbsolutePath } = await resolveStorageEntryPath(trimmedName, parentPath);
+  const { absolutePath: sourceAbsolutePath } = await resolveStorageAbsolutePath(normalizedSourcePath, library);
+  const { absolutePath: destinationAbsolutePath } = await resolveStorageEntryPath(trimmedName, parentPath, library);
 
   if (sourceAbsolutePath === destinationAbsolutePath) {
     throw new Error("The new name is the same as the current one.");
@@ -353,7 +511,12 @@ export async function renameStorageEntry(relativePath: string, nextName: string)
   };
 }
 
-export async function moveStorageEntries(relativePaths: string[], targetPath: string) {
+export async function moveStorageEntries(
+  relativePaths: string[],
+  targetPath: string,
+  library: StorageLibraryKey = "storage"
+) {
+  assertStorageWritable(library);
   const normalizedTargetPath = normalizeStoragePath(targetPath);
   const seen = new Set<string>();
 
@@ -363,9 +526,13 @@ export async function moveStorageEntries(relativePaths: string[], targetPath: st
     }
 
     seen.add(source);
-    const { absolutePath: sourceAbsolutePath } = await resolveStorageAbsolutePath(source);
+    const { absolutePath: sourceAbsolutePath } = await resolveStorageAbsolutePath(source, library);
     const sourceName = path.basename(sourceAbsolutePath);
-    const { absolutePath: destinationAbsolutePath } = await resolveStorageEntryPath(sourceName, normalizedTargetPath);
+    const { absolutePath: destinationAbsolutePath } = await resolveStorageEntryPath(
+      sourceName,
+      normalizedTargetPath,
+      library
+    );
     let destinationExists = false;
 
     if (sourceAbsolutePath === destinationAbsolutePath) {
@@ -398,8 +565,9 @@ export async function moveStorageEntries(relativePaths: string[], targetPath: st
   };
 }
 
-export async function deleteStorageEntry(relativePath: string) {
-  const { absolutePath: targetPath } = await resolveStorageAbsolutePath(relativePath);
+export async function deleteStorageEntry(relativePath: string, library: StorageLibraryKey = "storage") {
+  assertStorageWritable(library);
+  const { absolutePath: targetPath } = await resolveStorageAbsolutePath(relativePath, library);
   const stats = await fs.stat(targetPath);
 
   if (stats.isDirectory()) {
@@ -411,8 +579,8 @@ export async function deleteStorageEntry(relativePath: string) {
   return { message: `Deleted file ${path.basename(targetPath)}.` };
 }
 
-export async function getStorageFileStream(relativePath: string) {
-  const { absolutePath: filePath } = await resolveStorageAbsolutePath(relativePath);
+export async function getStorageFileStream(relativePath: string, library: StorageLibraryKey = "storage") {
+  const { absolutePath: filePath } = await resolveStorageAbsolutePath(relativePath, library);
   const stats = await fs.stat(filePath);
 
   if (!stats.isFile()) {

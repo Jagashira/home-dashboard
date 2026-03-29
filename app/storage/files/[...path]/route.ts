@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
-import { getStorageFileStream } from "@/lib/storage";
+import { getStorageFileStream, normalizeStorageLibrary } from "@/lib/storage";
 
 type RouteProps = {
   params: Promise<{
@@ -51,7 +51,8 @@ export async function GET(request: Request, { params }: RouteProps) {
   try {
     const { path } = await params;
     const relativePath = path.join("/");
-    const file = await getStorageFileStream(relativePath);
+    const library = normalizeStorageLibrary(new URL(request.url).searchParams.get("library"));
+    const file = await getStorageFileStream(relativePath, library);
     const rangeHeader = request.headers.get("range");
 
     if (rangeHeader) {

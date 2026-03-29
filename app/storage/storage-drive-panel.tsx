@@ -3,13 +3,25 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StorageDirectoryOption, StorageItem } from "@/lib/storage";
+import type { StorageDirectoryOption, StorageItem, StorageLibraryKey } from "@/lib/storage";
 
 type StorageDrivePanelProps = {
+  libraryKey: StorageLibraryKey;
+  libraryLabel: string;
+  readOnly: boolean;
   currentPath: string;
   entries: StorageItem[];
   directories: StorageDirectoryOption[];
 };
+
+type SortKey = "name" | "size" | "kind" | "updatedAt";
+type SortDirection = "asc" | "desc";
+type FilterKind = "all" | "files" | "folders";
+type MenuState = {
+  path: string;
+  x?: number;
+  y?: number;
+} | null;
 
 function formatTimestamp(value: string) {
   return new Date(value).toLocaleString("ja-JP", {
@@ -42,12 +54,17 @@ function formatSize(size: number, kind: "file" | "directory") {
   return `${current.toFixed(current >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-function buildStorageHref(currentPath: string) {
-  return currentPath ? `/storage?path=${encodeURIComponent(currentPath)}` : "/storage";
+function buildStorageHref(currentPath: string, libraryKey: StorageLibraryKey) {
+  const params = new URLSearchParams({ library: libraryKey });
+  if (currentPath) {
+    params.set("path", currentPath);
+  }
+
+  return `/storage?${params.toString()}`;
 }
 
-function buildFileHref(relativePath: string) {
-  return `/storage/files/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+function buildFileHref(relativePath: string, libraryKey: StorageLibraryKey) {
+  return `/storage/files/${relativePath.split("/").map(encodeURIComponent).join("/")}?library=${libraryKey}`;
 }
 
 function getPreviewKind(name: string) {
@@ -154,34 +171,111 @@ function FileBadge({ entry }: { entry: StorageItem }) {
   );
 }
 
-export function StorageDrivePanel({ currentPath, entries, directories }: StorageDrivePanelProps) {
+function isInteractiveTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(target.closest("a,button,input,select,textarea,summary,[role='button']"));
+}
+
+function getSortIndicator(activeKey: SortKey, currentKey: SortKey, direction: SortDirection) {
+  if (activeKey !== currentKey) {
+    return "";
+  }
+
+  return direction === "asc" ? " ↑" : " ↓";
+}
+
+export function StorageDrivePanel({
+  libraryKey,
+  libraryLabel,
+  readOnly,
+  currentPath,
+  entries,
+  directories
+}: StorageDrivePanelProps) {
   const router = useRouter();
   const menuRootRef = useRef<HTMLDivElement>(null);
   const mobileOptionsRef = useRef<HTMLDivElement>(null);
+  const tableDropRef = useRef<HTMLDivElement>(null);
+  const shiftPressedRef = useRef(false);
   const [query, setQuery] = useState("");
+  const [filterKind, setFilterKind] = useState<FilterKind>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [lastSelectedPath, setLastSelectedPath] = useState<string | null>(null);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [moveTarget, setMoveTarget] = useState(currentPath);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
-  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const [menuState, setMenuState] = useState<MenuState>(null);
   const [mobileOptionsOpen, setMobileOptionsOpen] = useState(false);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const filteredEntries = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) {
-      return entries;
-    }
+    const nextEntries = entries.filter((entry) => {
+      if (filterKind === "files" && entry.kind !== "file") {
+        return false;
+      }
 
-    return entries.filter((entry) => entry.name.toLowerCase().includes(normalizedQuery));
-  }, [entries, query]);
+      if (filterKind === "folders" && entry.kind !== "directory") {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return entry.name.toLowerCase().includes(normalizedQuery);
+    });
+
+    nextEntries.sort((left, right) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+
+      if (left.kind !== right.kind) {
+        return left.kind === "directory" ? -1 : 1;
+      }
+
+      if (sortKey === "size") {
+        return (left.size - right.size) * direction;
+      }
+
+      if (sortKey === "updatedAt") {
+        return (
+          (new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()) * direction
+        );
+      }
+
+      if (sortKey === "kind") {
+        return left.kind.localeCompare(right.kind) * direction;
+      }
+
+      return left.name.localeCompare(right.name, "ja") * direction;
+    });
+
+    return nextEntries;
+  }, [entries, filterKind, query, sortDirection, sortKey]);
 
   const selectedItems = useMemo(
     () => entries.filter((entry) => selectedPaths.includes(entry.relativePath)),
     [entries, selectedPaths]
   );
-  const previewItem =
-    entries.find((entry) => entry.relativePath === previewPath) ?? selectedItems[0] ?? null;
+  const previewItem = previewPath
+    ? filteredEntries.find((entry) => entry.relativePath === previewPath) ??
+      entries.find((entry) => entry.relativePath === previewPath) ??
+      null
+    : null;
+  const previewFiles = filteredEntries.filter((entry) => entry.kind === "file");
+  const previewIndex = previewItem
+    ? previewFiles.findIndex((entry) => entry.relativePath === previewItem.relativePath)
+    : -1;
+  const previousPreviewItem = previewIndex > 0 ? previewFiles[previewIndex - 1] : null;
+  const nextPreviewItem =
+    previewIndex !== -1 && previewIndex < previewFiles.length - 1 ? previewFiles[previewIndex + 1] : null;
   const allSelected =
     filteredEntries.length > 0 &&
     filteredEntries.every((entry) => selectedPaths.includes(entry.relativePath));
@@ -194,7 +288,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
       }
 
       if (menuRootRef.current && !menuRootRef.current.contains(target)) {
-        setMenuPath(null);
+        setMenuState(null);
       }
 
       if (mobileOptionsRef.current && !mobileOptionsRef.current.contains(target)) {
@@ -206,14 +300,45 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      shiftPressedRef.current = event.shiftKey;
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      shiftPressedRef.current = event.shiftKey;
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   const desktopActionsVisible = selectedItems.length > 0;
 
-  function toggleSelection(relativePath: string) {
+  function toggleSelection(relativePath: string, useRangeSelection = false) {
+    if (useRangeSelection && lastSelectedPath) {
+      const startIndex = filteredEntries.findIndex((entry) => entry.relativePath === lastSelectedPath);
+      const endIndex = filteredEntries.findIndex((entry) => entry.relativePath === relativePath);
+
+      if (startIndex !== -1 && endIndex !== -1) {
+        const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+        const nextPaths = filteredEntries.slice(from, to + 1).map((entry) => entry.relativePath);
+        setSelectedPaths((current) => Array.from(new Set([...current, ...nextPaths])));
+        setLastSelectedPath(relativePath);
+        return;
+      }
+    }
+
     setSelectedPaths((current) =>
       current.includes(relativePath)
         ? current.filter((item) => item !== relativePath)
         : [...current, relativePath]
     );
+    setLastSelectedPath(relativePath);
   }
 
   function toggleSelectAll() {
@@ -231,7 +356,25 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
     });
   }
 
+  function updateSort(nextSortKey: SortKey) {
+    if (sortKey === nextSortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextSortKey);
+    setSortDirection(nextSortKey === "updatedAt" ? "desc" : "asc");
+  }
+
+  function openRename(relativePath: string, name: string) {
+    setRenamingPath(relativePath);
+    setRenameValue(name);
+    setMenuState(null);
+  }
+
   async function postForm(url: string, formData: FormData) {
+    formData.set("library", libraryKey);
+
     const response = await fetch(url, {
       method: "POST",
       body: formData,
@@ -266,8 +409,9 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
       }
 
       setSelectedPaths([]);
+      setLastSelectedPath(null);
       setPreviewPath(null);
-      setMenuPath(null);
+      setMenuState(null);
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete the selected items.";
@@ -277,13 +421,13 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
     }
   }
 
-  async function handleRename(relativePath: string, currentName?: string) {
-    if (isWorking) {
-      return;
-    }
+  async function submitRename(relativePath: string) {
+    const nextName = renameValue.trim();
+    const currentName = entries.find((entry) => entry.relativePath === relativePath)?.name;
 
-    const nextName = window.prompt("Rename item", currentName)?.trim();
-    if (!nextName || nextName === currentName) {
+    if (isWorking || !nextName || nextName === currentName) {
+      setRenamingPath(null);
+      setRenameValue("");
       return;
     }
 
@@ -296,8 +440,11 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
       await postForm("/storage/rename", formData);
 
       setSelectedPaths([]);
+      setLastSelectedPath(null);
       setPreviewPath(null);
-      setMenuPath(null);
+      setMenuState(null);
+      setRenamingPath(null);
+      setRenameValue("");
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to rename the selected item.";
@@ -308,7 +455,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
   }
 
   async function handleMove(paths: string[]) {
-    if (!paths.length || isWorking) {
+    if (!paths.length || isWorking || readOnly) {
       return;
     }
 
@@ -321,8 +468,9 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
       await postForm("/storage/move", formData);
 
       setSelectedPaths([]);
+      setLastSelectedPath(null);
       setPreviewPath(null);
-      setMenuPath(null);
+      setMenuState(null);
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to move the selected items.";
@@ -337,7 +485,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
   }
 
   async function handleDropOnFolder(targetRelativePath: string, draggedPaths: string[]) {
-    if (!draggedPaths.length || isWorking) {
+    if (!draggedPaths.length || isWorking || readOnly) {
       return;
     }
 
@@ -350,8 +498,9 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
       await postForm("/storage/move", formData);
 
       setSelectedPaths([]);
+      setLastSelectedPath(null);
       setPreviewPath(null);
-      setMenuPath(null);
+      setMenuState(null);
       setDropTargetPath(null);
       router.refresh();
     } catch (error) {
@@ -367,7 +516,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
       <div className="border-b border-slate-200 bg-white px-5 py-4 lg:px-6">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0 whitespace-nowrap text-sm font-medium text-slate-500">
-            {currentPath ? currentPath : "Storage"}
+            {currentPath ? `${libraryLabel} / ${currentPath}` : libraryLabel}
           </div>
 
           <div className="relative min-w-0">
@@ -386,73 +535,124 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
           </div>
 
           <div ref={mobileOptionsRef} className="relative lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileOptionsOpen((current) => !current)}
-                className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-[16px] border border-slate-200 bg-white text-slate-500"
-              >
-                <OptionsIcon />
-              </button>
-              {mobileOptionsOpen ? (
-                <div className="absolute right-0 top-[calc(100%+10px)] z-20 w-72 rounded-[22px] border border-slate-200 bg-white p-4 shadow-xl">
-                  <div className="space-y-3">
-                    <div className="rounded-full bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                      {selectedItems.length} selected
-                    </div>
-                    <select
-                      value={moveTarget}
-                      onChange={(event) => setMoveTarget(event.target.value)}
-                      disabled={!selectedItems.length || isWorking}
-                      className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {directories.map((directory) => (
-                        <option key={directory.path || "root"} value={directory.path}>
-                          {directory.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => void handleMove(selectedPaths)}
-                      disabled={!selectedItems.length || isWorking}
-                      className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Move
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        selectedItems.length === 1
-                          ? void handleRename(selectedItems[0].relativePath, selectedItems[0].name)
-                          : undefined
-                      }
-                      disabled={selectedItems.length !== 1 || isWorking}
-                      className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(selectedPaths)}
-                      disabled={!selectedItems.length || isWorking}
-                      className="h-12 w-full rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Delete
-                    </button>
+            <button
+              type="button"
+              onClick={() => setMobileOptionsOpen((current) => !current)}
+              className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-[16px] border border-slate-200 bg-white text-slate-500"
+            >
+              <OptionsIcon />
+            </button>
+            {mobileOptionsOpen ? (
+              <div className="absolute right-0 top-[calc(100%+10px)] z-20 w-72 rounded-[22px] border border-slate-200 bg-white p-4 shadow-xl">
+                <div className="space-y-3">
+                  <div className="rounded-full bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                    {selectedItems.length} selected
                   </div>
+                  <div className="flex gap-2">
+                    {(["all", "folders", "files"] as FilterKind[]).map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setFilterKind(item)}
+                        className={[
+                          "rounded-full px-3 py-2 text-xs font-medium",
+                          filterKind === item ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                        ].join(" ")}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    value={`${sortKey}:${sortDirection}`}
+                    onChange={(event) => {
+                      const [nextKey, nextDirection] = event.target.value.split(":") as [
+                        SortKey,
+                        SortDirection
+                      ];
+                      setSortKey(nextKey);
+                      setSortDirection(nextDirection);
+                    }}
+                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700"
+                  >
+                    <option value="name:asc">Name ↑</option>
+                    <option value="name:desc">Name ↓</option>
+                    <option value="updatedAt:desc">Date ↓</option>
+                    <option value="updatedAt:asc">Date ↑</option>
+                    <option value="size:desc">Size ↓</option>
+                    <option value="size:asc">Size ↑</option>
+                  </select>
+                  <select
+                    value={moveTarget}
+                    onChange={(event) => setMoveTarget(event.target.value)}
+                    disabled={!selectedItems.length || isWorking || readOnly}
+                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {directories.map((directory) => (
+                      <option key={directory.path || "root"} value={directory.path}>
+                        {directory.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void handleMove(selectedPaths)}
+                    disabled={!selectedItems.length || isWorking || readOnly}
+                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Move
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      selectedItems.length === 1
+                        ? openRename(selectedItems[0].relativePath, selectedItems[0].name)
+                        : undefined
+                    }
+                    disabled={selectedItems.length !== 1 || isWorking || readOnly}
+                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(selectedPaths)}
+                    disabled={!selectedItems.length || isWorking || readOnly}
+                    className="h-12 w-full rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete
+                  </button>
                 </div>
-              ) : null}
+              </div>
+            ) : null}
           </div>
 
-          {desktopActionsVisible ? (
-            <div className="col-span-3 hidden items-center justify-end gap-2 lg:flex">
+          <div className="col-span-3 hidden items-center justify-between gap-3 lg:flex">
+            <div className="flex items-center gap-2">
+              {(["all", "folders", "files"] as FilterKind[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setFilterKind(item)}
+                  className={[
+                    "rounded-full px-3 py-2 text-xs font-medium",
+                    filterKind === item ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                  ].join(" ")}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
+            {desktopActionsVisible ? (
+              <div className="flex items-center justify-end gap-2">
                 <span className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-600">
                   {selectedItems.length} selected
                 </span>
                 <select
                   value={moveTarget}
                   onChange={(event) => setMoveTarget(event.target.value)}
-                  disabled={!selectedItems.length || isWorking}
+                  disabled={!selectedItems.length || isWorking || readOnly}
                   className="h-11 min-w-[200px] rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {directories.map((directory) => (
@@ -464,7 +664,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                 <button
                   type="button"
                   onClick={() => void handleMove(selectedPaths)}
-                  disabled={!selectedItems.length || isWorking}
+                  disabled={!selectedItems.length || isWorking || readOnly}
                   className="h-11 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Move
@@ -473,10 +673,10 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                   type="button"
                   onClick={() =>
                     selectedItems.length === 1
-                      ? void handleRename(selectedItems[0].relativePath, selectedItems[0].name)
+                      ? openRename(selectedItems[0].relativePath, selectedItems[0].name)
                       : undefined
                   }
-                  disabled={selectedItems.length !== 1 || isWorking}
+                  disabled={selectedItems.length !== 1 || isWorking || readOnly}
                   className="h-11 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Rename
@@ -484,13 +684,18 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                 <button
                   type="button"
                   onClick={() => void handleDelete(selectedPaths)}
-                  disabled={!selectedItems.length || isWorking}
+                  disabled={!selectedItems.length || isWorking || readOnly}
                   className="h-11 rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Delete
                 </button>
-            </div>
-          ) : null}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                {readOnly ? <span>Read only</span> : null}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -501,32 +706,83 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div
+          ref={tableDropRef}
+          className="overflow-x-auto"
+          onDragOver={(event) => {
+            if (readOnly) {
+              return;
+            }
+
+            event.preventDefault();
+            setDropTargetPath("");
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              return;
+            }
+
+            if (dropTargetPath === "") {
+              setDropTargetPath(null);
+            }
+          }}
+          onDrop={(event) => {
+            if (readOnly) {
+              return;
+            }
+
+            event.preventDefault();
+            const raw = event.dataTransfer.getData("application/json");
+            const draggedPaths = raw ? (JSON.parse(raw) as string[]) : [];
+            void handleDropOnFolder(currentPath, draggedPaths);
+          }}
+        >
           <table className="min-w-[980px] w-full text-left">
             <thead className="border-b border-slate-200 text-sm text-slate-600">
               <tr>
                 <th className="w-16 px-6 py-5">
                   <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
                 </th>
-                <th className="px-6 py-5 font-medium">Name</th>
-                <th className="px-6 py-5 font-medium">Size</th>
-                <th className="px-6 py-5 font-medium">Type</th>
-                <th className="px-6 py-5 font-medium">Date</th>
+                <th className="w-[44%] px-6 py-4 font-medium">
+                  <button type="button" onClick={() => updateSort("name")} className="hover:text-slate-900">
+                    Name{getSortIndicator(sortKey, "name", sortDirection)}
+                  </button>
+                </th>
+                <th className="w-[12%] px-6 py-4 font-medium">
+                  <button type="button" onClick={() => updateSort("size")} className="hover:text-slate-900">
+                    Size{getSortIndicator(sortKey, "size", sortDirection)}
+                  </button>
+                </th>
+                <th className="w-[14%] px-6 py-4 font-medium">
+                  <button type="button" onClick={() => updateSort("kind")} className="hover:text-slate-900">
+                    Type{getSortIndicator(sortKey, "kind", sortDirection)}
+                  </button>
+                </th>
+                <th className="w-[24%] px-6 py-4 font-medium">
+                  <button type="button" onClick={() => updateSort("updatedAt")} className="hover:text-slate-900">
+                    Date{getSortIndicator(sortKey, "updatedAt", sortDirection)}
+                  </button>
+                </th>
                 <th className="w-[110px] px-6 py-5 font-medium text-center">Download</th>
                 <th className="w-[90px] px-6 py-5 font-medium text-center" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredEntries.map((entry) => {
-                const fileHref = buildFileHref(entry.relativePath);
+                const fileHref = buildFileHref(entry.relativePath, libraryKey);
                 const isSelected = selectedPaths.includes(entry.relativePath);
-                const isMenuOpen = menuPath === entry.relativePath;
+                const isMenuOpen = menuState?.path === entry.relativePath;
+                const isRenaming = renamingPath === entry.relativePath;
 
                 return (
                   <tr
                     key={entry.relativePath}
-                    draggable
+                    draggable={!readOnly}
                     onDragStart={(event) => {
+                      if (readOnly) {
+                        return;
+                      }
+
                       const draggedPaths = getDraggedPaths(entry.relativePath);
                       event.dataTransfer.setData("application/json", JSON.stringify(draggedPaths));
                       event.dataTransfer.effectAllowed = "move";
@@ -552,7 +808,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                       }
                     }}
                     onDrop={(event) => {
-                      if (entry.kind !== "directory") {
+                      if (entry.kind !== "directory" || readOnly) {
                         return;
                       }
 
@@ -561,28 +817,78 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                       const draggedPaths = raw ? (JSON.parse(raw) as string[]) : [];
                       void handleDropOnFolder(entry.relativePath, draggedPaths);
                     }}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      setSelectedPaths((current) =>
+                        current.includes(entry.relativePath) ? current : [entry.relativePath]
+                      );
+                      setMenuState({
+                        path: entry.relativePath,
+                        x: event.clientX,
+                        y: event.clientY
+                      });
+                    }}
+                    onClick={(event) => {
+                      if (isInteractiveTarget(event.target) || isRenaming) {
+                        return;
+                      }
+
+                      toggleSelection(entry.relativePath, event.shiftKey);
+                    }}
                     className={[
                       "transition hover:bg-slate-50/70",
                       isSelected ? "bg-blue-50/50" : "",
-                      dropTargetPath === entry.relativePath ? "bg-blue-50" : ""
+                      dropTargetPath === entry.relativePath ? "bg-blue-50" : "",
+                      dropTargetPath === "" ? "ring-1 ring-inset ring-blue-200" : ""
                     ]
                       .filter(Boolean)
                       .join(" ")}
                   >
-                    <td className="px-6 py-4 align-middle">
+                    <td className="px-6 py-3 align-middle">
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => toggleSelection(entry.relativePath)}
+                        onChange={(event) => {
+                          event.stopPropagation();
+                          toggleSelection(entry.relativePath, shiftPressedRef.current);
+                        }}
                       />
                     </td>
-                    <td className="px-6 py-4 align-middle">
-                      <div className="flex items-center gap-5">
+                    <td className="px-6 py-3 align-middle">
+                      <div className="flex items-center gap-4">
                         <FileBadge entry={entry} />
                         <div className="min-w-0">
-                          {entry.kind === "directory" ? (
+                          {isRenaming ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={renameValue}
+                                onChange={(event) => setRenameValue(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    void submitRename(entry.relativePath);
+                                  }
+
+                                  if (event.key === "Escape") {
+                                    setRenamingPath(null);
+                                    setRenameValue("");
+                                  }
+                                }}
+                                className="h-10 min-w-[220px] rounded-xl border border-blue-300 bg-white px-3 text-sm text-slate-800"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void submitRename(entry.relativePath)}
+                                className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          ) : entry.kind === "directory" ? (
                             <Link
-                              href={buildStorageHref(entry.relativePath)}
+                              href={buildStorageHref(entry.relativePath, libraryKey)}
                               className="block truncate text-base font-medium text-slate-900 hover:no-underline"
                             >
                               {entry.name}
@@ -599,16 +905,16 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 align-middle">
+                    <td className="px-6 py-3 text-sm text-slate-600 align-middle">
                       {formatSize(entry.size, entry.kind)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 align-middle">
+                    <td className="px-6 py-3 text-sm text-slate-600 align-middle">
                       {entry.kind}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 align-middle">
+                    <td className="px-6 py-3 text-sm text-slate-600 align-middle">
                       {formatTimestamp(entry.updatedAt)}
                     </td>
-                    <td className="px-6 py-4 align-middle text-center text-slate-500">
+                    <td className="px-6 py-3 align-middle text-center text-slate-500">
                       {entry.kind === "directory" ? (
                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-300">
                           —
@@ -623,28 +929,37 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                         </Link>
                       )}
                     </td>
-                    <td className="px-6 py-4 align-middle">
+                    <td className="px-6 py-3 align-middle">
                       <div className="relative flex items-center justify-center text-slate-500">
                         <button
                           type="button"
-                          onClick={() =>
-                            setMenuPath((currentMenuPath) =>
-                              currentMenuPath === entry.relativePath ? null : entry.relativePath
-                            )
-                          }
+                          onClick={(event) => {
+                            const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                            setMenuState((currentMenuState) =>
+                              currentMenuState?.path === entry.relativePath
+                                ? null
+                                : { path: entry.relativePath, x: rect.right - 176, y: rect.bottom + 8 }
+                            );
+                          }}
                           className="inline-flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-slate-100 hover:text-slate-900"
                         >
                           <MoreIcon />
                         </button>
 
                         {isMenuOpen ? (
-                          <div className="absolute right-0 top-12 z-20 min-w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                          <div
+                            className="fixed z-30 min-w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+                            style={{
+                              left: menuState?.x ?? 0,
+                              top: menuState?.y ?? 0
+                            }}
+                          >
                             <button
                               type="button"
                               onClick={() => {
-                                setMenuPath(null);
+                                setMenuState(null);
                                 if (entry.kind === "directory") {
-                                  router.push(buildStorageHref(entry.relativePath));
+                                  router.push(buildStorageHref(entry.relativePath, libraryKey));
                                 } else {
                                   setPreviewPath(entry.relativePath);
                                 }
@@ -653,10 +968,20 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                             >
                               {entry.kind === "directory" ? "Open" : "Preview"}
                             </button>
+                            {entry.kind === "file" ? (
+                              <Link
+                                href={fileHref}
+                                download={entry.name}
+                                className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:no-underline"
+                              >
+                                Download
+                              </Link>
+                            ) : null}
                             <button
                               type="button"
-                              onClick={() => void handleRename(entry.relativePath, entry.name)}
-                              className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                              onClick={() => openRename(entry.relativePath, entry.name)}
+                              disabled={readOnly}
+                              className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                             >
                               Rename
                             </button>
@@ -664,9 +989,11 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                               type="button"
                               onClick={() => {
                                 setSelectedPaths([entry.relativePath]);
+                                setLastSelectedPath(entry.relativePath);
                                 void handleDelete([entry.relativePath]);
                               }}
-                              className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50"
+                              disabled={readOnly}
+                              className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                             >
                               Delete
                             </button>
@@ -696,13 +1023,47 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                   {previewItem.kind} • {formatTimestamp(previewItem.updatedAt)}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setPreviewPath(null)}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600"
-              >
-                Close
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {previousPreviewItem ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPath(previousPreviewItem.relativePath)}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                  >
+                    Previous
+                  </button>
+                ) : null}
+                {nextPreviewItem ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPath(nextPreviewItem.relativePath)}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                  >
+                    Next
+                  </button>
+                ) : null}
+                <Link
+                  href={buildFileHref(previewItem.relativePath, libraryKey)}
+                  target="_blank"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:no-underline"
+                >
+                  Open
+                </Link>
+                <Link
+                  href={buildFileHref(previewItem.relativePath, libraryKey)}
+                  download={previewItem.name}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:no-underline"
+                >
+                  Download
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPath(null)}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             <div className="max-h-[calc(92vh-88px)] overflow-auto bg-slate-50 p-4 sm:p-6">
@@ -714,7 +1075,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                 <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
                   {(() => {
                     const previewKind = getPreviewKind(previewItem.name);
-                    const fileHref = buildFileHref(previewItem.relativePath);
+                    const fileHref = buildFileHref(previewItem.relativePath, libraryKey);
 
                     if (previewKind === "image") {
                       return <img src={fileHref} alt={previewItem.name} className="max-h-[72vh] w-full object-contain bg-slate-100" />;

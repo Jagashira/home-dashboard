@@ -1,7 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { buildStoragePagePath, moveStorageEntries, normalizeStoragePath } from "@/lib/storage";
+import {
+  buildStoragePagePath,
+  moveStorageEntries,
+  normalizeStorageLibrary,
+  normalizeStoragePath
+} from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
@@ -20,19 +25,21 @@ export async function POST(request: Request) {
   let outcome: "success" | "error" = "error";
   let message = "Failed to move the selected entries.";
   let targetPath = "";
+  let library = normalizeStorageLibrary("storage");
 
   try {
     const formData = await request.formData();
     const paths = formData.getAll("paths").map((item) => String(item));
+    library = normalizeStorageLibrary(String(formData.get("library") ?? "storage"));
     targetPath = normalizeStoragePath(String(formData.get("targetPath") ?? ""));
-    const result = await moveStorageEntries(paths, targetPath);
+    const result = await moveStorageEntries(paths, targetPath, library);
     revalidatePath("/storage");
     outcome = "success";
     message = result.message;
-    destination = buildStoragePagePath(targetPath, "success", message);
+    destination = buildStoragePagePath(targetPath, "success", message, library);
   } catch (error) {
     message = getActionErrorMessage(error, "Failed to move the selected entries.");
-    destination = buildStoragePagePath(targetPath, "error", message);
+    destination = buildStoragePagePath(targetPath, "error", message, library);
   }
 
   if (request.headers.get("x-storage-client") === "1") {

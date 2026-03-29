@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { StorageLibraryKey } from "@/lib/storage";
 import { StorageCreateFolderForm } from "@/app/storage/storage-create-folder-form";
 import { StorageUploadForm } from "@/app/storage/storage-upload-form";
 
 type StorageHeaderActionsProps = {
+  libraryKey: StorageLibraryKey;
   currentPath: string;
   disabled: boolean;
   initialNotice?: {
@@ -30,6 +32,7 @@ function PlusIcon() {
 }
 
 export function StorageHeaderActions({
+  libraryKey,
   currentPath,
   disabled,
   initialNotice
@@ -55,7 +58,13 @@ export function StorageHeaderActions({
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="hidden items-center gap-3 md:flex">
+      {disabled ? (
+        <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/90">
+          {libraryKey === "backup" ? "Read only" : "Unavailable"}
+        </div>
+      ) : null}
+
+      {!disabled ? <div className="hidden items-center gap-3 md:flex">
         <button
           type="button"
           onClick={() => setOpenPanel((current) => (current === "upload" ? null : "upload"))}
@@ -73,15 +82,15 @@ export function StorageHeaderActions({
           <PlusIcon />
           New Folder
         </button>
-      </div>
+      </div> : null}
 
-      <button
+      {!disabled ? <button
         type="button"
         onClick={() => setOpenPanel((current) => (current === "mobile" ? null : "mobile"))}
         className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white md:hidden"
       >
         <PlusIcon />
-      </button>
+      </button> : null}
 
       {openPanel === "mobile" ? (
         <div className="absolute right-0 top-[calc(100%+12px)] z-20 w-48 rounded-2xl border border-white/15 bg-[rgba(44,108,233,0.96)] p-2 shadow-2xl shadow-blue-950/20 backdrop-blur md:hidden">
@@ -128,13 +137,19 @@ export function StorageHeaderActions({
 
             {openPanel === "upload" ? (
               <StorageUploadForm
+                libraryKey={libraryKey}
                 currentPath={currentPath}
                 disabled={disabled}
                 compact
                 initialNotice={initialNotice}
               />
             ) : (
-              <StorageCreateFolderForm currentPath={currentPath} disabled={disabled} compact />
+              <StorageCreateFolderForm
+                libraryKey={libraryKey}
+                currentPath={currentPath}
+                disabled={disabled}
+                compact
+              />
             )}
           </div>
         </div>

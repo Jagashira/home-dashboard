@@ -1,7 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { buildStoragePagePath, createStorageDirectory, normalizeStoragePath } from "@/lib/storage";
+import {
+  buildStoragePagePath,
+  createStorageDirectory,
+  normalizeStorageLibrary,
+  normalizeStoragePath
+} from "@/lib/storage";
 
 function getActionErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "code" in error) {
@@ -28,19 +33,21 @@ export async function POST(request: Request) {
   let outcome: "success" | "error" = "error";
   let message = "Failed to create the folder.";
   let currentPath = "";
+  let library = normalizeStorageLibrary("storage");
 
   try {
     const formData = await request.formData();
     const name = String(formData.get("name") ?? "");
+    library = normalizeStorageLibrary(String(formData.get("library") ?? "storage"));
     currentPath = normalizeStoragePath(String(formData.get("currentPath") ?? ""));
-    const result = await createStorageDirectory(name, currentPath);
+    const result = await createStorageDirectory(name, currentPath, library);
     revalidatePath("/storage");
     outcome = "success";
     message = result.message;
-    destination = buildStoragePagePath(currentPath, "success", message);
+    destination = buildStoragePagePath(currentPath, "success", message, library);
   } catch (error) {
     message = getActionErrorMessage(error, "Failed to create the folder.");
-    destination = buildStoragePagePath(currentPath, "error", message);
+    destination = buildStoragePagePath(currentPath, "error", message, library);
   }
 
   if (request.headers.get("x-storage-client") === "1") {

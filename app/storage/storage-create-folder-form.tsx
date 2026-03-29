@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { StorageLibraryKey } from "@/lib/storage";
 
 type StorageCreateFolderFormProps = {
+  libraryKey: StorageLibraryKey;
   currentPath: string;
   disabled: boolean;
   compact?: boolean;
 };
 
 export function StorageCreateFolderForm({
+  libraryKey,
   currentPath,
   disabled,
   compact = false
@@ -37,6 +40,7 @@ export function StorageCreateFolderForm({
       const formData = new FormData();
       formData.append("name", trimmed);
       formData.append("currentPath", currentPath);
+      formData.append("library", libraryKey);
 
       const response = await fetch("/storage/folders", {
         method: "POST",
