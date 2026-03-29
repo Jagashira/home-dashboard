@@ -282,6 +282,11 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         description: immich?.available ? `NAS ${immich.storage.availableLabel} 空き / Immich ${immich.stats.usageLabel}` : "ストレージと Photos への入口"
       },
       {
+        title: "Weekly Review",
+        href: "/review/week",
+        description: "1週間の支出・task・ニュース・写真をまとめて振り返る"
+      },
+      {
         title: "Admin",
         href: "/news/settings",
         description: "ニュース取得設定とメンテナンス"
