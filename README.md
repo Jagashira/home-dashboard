@@ -72,6 +72,7 @@ HA_HOME_URI=/dashboard-mobile/home
 HA_EXPENSE_URI=/dashboard-mobile/expense
 HA_TASK_URI=/dashboard-mobile/tasks
 HA_NEWS_URI=/dashboard-mobile/news
+HA_WEEKLY_REVIEW_URI=
 IMMICH_BASE_URL=
 IMMICH_API_KEY=
 ```
@@ -81,6 +82,7 @@ IMMICH_API_KEY=
 - GPT 使用量のホーム表示は `OPENAI_ADMIN_API_KEY` だけで取得します。表示するのは「今日の使用料金」「今月の使用料金」「token数」です。
 - `STORAGE_BASE_PATH` は `/storage` ページが読むベースディレクトリです。Mac 開発では `./data/storage-dev` のようなローカルディレクトリ、home-server では NAS 側の実パスを設定してください。
 - `IMMICH_BASE_URL` と `IMMICH_API_KEY` を設定すると、ホーム画面と `GET /api/immich/summary` で Immich の storage/statistics を表示できます。
+- `HA_WEEKLY_REVIEW_URI` を設定すると、週次レビュー通知のタップ先を Home Assistant 用パスか外部 URL に上書きできます。未設定時は `${APP_BASE_URL}/review/week` を使います。
 
 ## 開発環境起動
 
@@ -147,10 +149,40 @@ npm run db:seed
 
 - `GET /api/ha/notifications/evening`
 - `GET /api/ha/notifications/morning-news?limit=5`
+- `GET /api/ha/notifications/weekly-review`
 - `HA_SECRET` を設定した場合は `x-ha-secret` ヘッダまたは `?secret=` が必須です。
 - `HA_HOME_URI` `HA_EXPENSE_URI` `HA_TASK_URI` `HA_NEWS_URI` は Home Assistant Companion App で開くダッシュボードパスです。
 
 23:00 向けの evening API は今日の支出合計と未完了 task 数を集約し、iPhone 通知向けの payload を返します。6:00 向けの morning-news API は最新ニュース一覧と通知 payload を返します。
+
+週次レビュー通知の利用イメージ:
+
+```yaml
+rest_command:
+  home_dashboard_weekly_review_notification:
+    url: "http://192.168.11.12:3000/api/ha/notifications/weekly-review"
+    method: get
+    headers:
+      x-ha-secret: !secret home_dashboard_ha_secret
+
+automation:
+  - alias: "週次レビュー通知"
+    triggers:
+      - trigger: time
+        at: "20:00:00"
+    conditions:
+      - condition: time
+        weekday:
+          - sun
+    actions:
+      - action: rest_command.home_dashboard_weekly_review_notification
+        response_variable: weekly_review_payload
+      - action: notify.mobile_app_your_iphone
+        data:
+          title: "{{ weekly_review_payload['content']['notification']['title'] }}"
+          message: "{{ weekly_review_payload['content']['notification']['message'] }}"
+          data: "{{ weekly_review_payload['content']['notification']['data'] }}"
+```
 
 返却される `notification` の例:
 
