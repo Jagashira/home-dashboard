@@ -184,8 +184,8 @@ export function StorageUploadForm({
   if (compact) {
     return (
       <div
-        className={`rounded-[28px] border px-4 py-3 transition-colors ${
-          isDragActive ? "border-white bg-white/18" : "border-white/18 bg-white/10"
+        className={`rounded-[24px] border px-4 py-4 transition-colors ${
+          isDragActive ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-slate-50"
         }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -197,28 +197,28 @@ export function StorageUploadForm({
             type="file"
             name="file"
             multiple
-            className="block w-full min-w-0 rounded-2xl border border-white/35 bg-white/90 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700"
+            className="block w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-xl file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700"
             disabled={disabled || state.isUploading}
           />
           <button
             type="button"
             onClick={() => void uploadFiles(Array.from(inputRef.current?.files ?? []))}
-            className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/18 px-4 text-sm font-semibold text-white backdrop-blur disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+            className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
             disabled={disabled || state.isUploading}
           >
             {state.isUploading ? "Uploading..." : "Upload"}
           </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/80">
-          <span>Drop multiple files here to upload them in sequence.</span>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <span>Drop files here</span>
           {state.message ? <span>{state.message}</span> : null}
         </div>
 
         {state.isUploading ? (
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20">
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full rounded-full bg-white transition-[width] duration-200"
+              className="h-full rounded-full bg-blue-600 transition-[width] duration-200"
               style={{ width: `${state.progress}%` }}
             />
           </div>

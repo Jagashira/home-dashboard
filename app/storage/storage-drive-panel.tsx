@@ -157,6 +157,7 @@ function FileBadge({ entry }: { entry: StorageItem }) {
 export function StorageDrivePanel({ currentPath, entries, directories }: StorageDrivePanelProps) {
   const router = useRouter();
   const menuRootRef = useRef<HTMLDivElement>(null);
+  const mobileOptionsRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
@@ -164,6 +165,7 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
   const [moveTarget, setMoveTarget] = useState(currentPath);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const [menuPath, setMenuPath] = useState<string | null>(null);
+  const [mobileOptionsOpen, setMobileOptionsOpen] = useState(false);
 
   const filteredEntries = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -186,13 +188,17 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
-      if (!menuRootRef.current) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
         return;
       }
 
-      const target = event.target;
-      if (target instanceof Node && !menuRootRef.current.contains(target)) {
+      if (menuRootRef.current && !menuRootRef.current.contains(target)) {
         setMenuPath(null);
+      }
+
+      if (mobileOptionsRef.current && !mobileOptionsRef.current.contains(target)) {
+        setMobileOptionsOpen(false);
       }
     }
 
@@ -358,14 +364,14 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
 
   return (
     <div ref={menuRootRef} className="flex min-w-0 flex-col">
-      <div className="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-4 lg:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-[1.2rem] font-semibold tracking-tight text-slate-900">Files</h2>
+      <div className="border-b border-slate-200 bg-white px-5 py-4 lg:px-6">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+          <div className="min-w-0 whitespace-nowrap text-sm font-medium text-slate-500">
+            {currentPath ? currentPath : "Storage"}
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:max-w-[920px] lg:flex-row lg:items-center lg:justify-end">
-            <div className="relative w-full lg:max-w-[620px]">
+          <div className="relative min-w-0">
+            <div className="relative w-full">
               <input
                 type="search"
                 value={query}
@@ -377,62 +383,69 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                 <SearchIcon />
               </span>
             </div>
+          </div>
 
-            <details className="relative lg:hidden">
-              <summary className="flex h-12 cursor-pointer list-none items-center justify-center rounded-[16px] border border-slate-200 bg-white px-4 text-slate-500">
+          <div ref={mobileOptionsRef} className="relative lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileOptionsOpen((current) => !current)}
+                className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-[16px] border border-slate-200 bg-white text-slate-500"
+              >
                 <OptionsIcon />
-              </summary>
-              <div className="absolute right-0 top-[calc(100%+10px)] z-20 w-72 rounded-[22px] border border-slate-200 bg-white p-4 shadow-xl">
-                <div className="space-y-3">
-                  <div className="rounded-full bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                    {selectedItems.length} selected
+              </button>
+              {mobileOptionsOpen ? (
+                <div className="absolute right-0 top-[calc(100%+10px)] z-20 w-72 rounded-[22px] border border-slate-200 bg-white p-4 shadow-xl">
+                  <div className="space-y-3">
+                    <div className="rounded-full bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                      {selectedItems.length} selected
+                    </div>
+                    <select
+                      value={moveTarget}
+                      onChange={(event) => setMoveTarget(event.target.value)}
+                      disabled={!selectedItems.length || isWorking}
+                      className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {directories.map((directory) => (
+                        <option key={directory.path || "root"} value={directory.path}>
+                          {directory.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void handleMove(selectedPaths)}
+                      disabled={!selectedItems.length || isWorking}
+                      className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Move
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        selectedItems.length === 1
+                          ? void handleRename(selectedItems[0].relativePath, selectedItems[0].name)
+                          : undefined
+                      }
+                      disabled={selectedItems.length !== 1 || isWorking}
+                      className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(selectedPaths)}
+                      disabled={!selectedItems.length || isWorking}
+                      className="h-12 w-full rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <select
-                    value={moveTarget}
-                    onChange={(event) => setMoveTarget(event.target.value)}
-                    disabled={!selectedItems.length || isWorking}
-                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {directories.map((directory) => (
-                      <option key={directory.path || "root"} value={directory.path}>
-                        {directory.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void handleMove(selectedPaths)}
-                    disabled={!selectedItems.length || isWorking}
-                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Move
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      selectedItems.length === 1
-                        ? void handleRename(selectedItems[0].relativePath, selectedItems[0].name)
-                        : undefined
-                    }
-                    disabled={selectedItems.length !== 1 || isWorking}
-                    className="h-12 w-full rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(selectedPaths)}
-                    disabled={!selectedItems.length || isWorking}
-                    className="h-12 w-full rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Delete
-                  </button>
                 </div>
-              </div>
-            </details>
+              ) : null}
+          </div>
 
-            {desktopActionsVisible ? (
-              <div className="hidden items-center gap-2 lg:flex">
+          {desktopActionsVisible ? (
+            <div className="col-span-3 hidden items-center justify-end gap-2 lg:flex">
                 <span className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-600">
                   {selectedItems.length} selected
                 </span>
@@ -476,15 +489,14 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
                 >
                   Delete
                 </button>
-              </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
       {filteredEntries.length === 0 ? (
-        <div className="border-t border-slate-100 px-5 py-24 text-center">
-          <p className="text-[2rem] font-medium text-slate-900">
+        <div className="border-t border-slate-100 px-5 py-20 text-center">
+          <p className="text-xl font-medium text-slate-900">
             {query ? "No results in this folder." : "This folder is empty."}
           </p>
         </div>
@@ -670,14 +682,8 @@ export function StorageDrivePanel({ currentPath, entries, directories }: Storage
         </div>
       )}
 
-      <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-5 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
-        <div className="text-[1.05rem] text-slate-600">{entries.length} items</div>
-        <div className="flex items-center gap-4 text-[1.05rem] text-slate-600">
-          <span>Storage status</span>
-          <div className="h-4 w-48 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full w-[72%] rounded-full bg-blue-500" />
-          </div>
-        </div>
+      <div className="border-t border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 lg:px-6">
+        {entries.length} items
       </div>
 
       {previewItem ? (

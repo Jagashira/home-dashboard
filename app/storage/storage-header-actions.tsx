@@ -83,32 +83,60 @@ export function StorageHeaderActions({
         <PlusIcon />
       </button>
 
-      {openPanel === "upload" ? (
-        <div className="absolute right-0 top-[calc(100%+12px)] z-20 hidden w-[520px] rounded-[22px] border border-white/15 bg-[rgba(44,108,233,0.96)] p-4 shadow-2xl shadow-blue-950/20 backdrop-blur md:block">
-          <StorageUploadForm
-            currentPath={currentPath}
-            disabled={disabled}
-            compact
-            initialNotice={initialNotice}
-          />
-        </div>
-      ) : null}
-
-      {openPanel === "folder" ? (
-        <div className="absolute right-0 top-[calc(100%+12px)] z-20 hidden w-[430px] rounded-[22px] border border-white/15 bg-[rgba(44,108,233,0.96)] p-4 shadow-2xl shadow-blue-950/20 backdrop-blur md:block">
-          <StorageCreateFolderForm currentPath={currentPath} disabled={disabled} compact />
-        </div>
-      ) : null}
-
       {openPanel === "mobile" ? (
-        <div className="absolute right-0 top-[calc(100%+12px)] z-20 w-[min(92vw,360px)] space-y-3 rounded-[22px] border border-white/15 bg-[rgba(44,108,233,0.96)] p-3 shadow-2xl shadow-blue-950/20 backdrop-blur md:hidden">
-          <StorageUploadForm
-            currentPath={currentPath}
-            disabled={disabled}
-            compact
-            initialNotice={initialNotice}
-          />
-          <StorageCreateFolderForm currentPath={currentPath} disabled={disabled} compact />
+        <div className="absolute right-0 top-[calc(100%+12px)] z-20 w-48 rounded-2xl border border-white/15 bg-[rgba(44,108,233,0.96)] p-2 shadow-2xl shadow-blue-950/20 backdrop-blur md:hidden">
+          <button
+            type="button"
+            onClick={() => setOpenPanel("upload")}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-medium text-white transition hover:bg-white/10"
+          >
+            <UploadIcon />
+            Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenPanel("folder")}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-medium text-white transition hover:bg-white/10"
+          >
+            <PlusIcon />
+            New Folder
+          </button>
+        </div>
+      ) : null}
+
+      {openPanel === "upload" || openPanel === "folder" ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4"
+          onClick={() => setOpenPanel(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-[28px] bg-white p-5 shadow-2xl sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {openPanel === "upload" ? "Upload" : "New Folder"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setOpenPanel(null)}
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            {openPanel === "upload" ? (
+              <StorageUploadForm
+                currentPath={currentPath}
+                disabled={disabled}
+                compact
+                initialNotice={initialNotice}
+              />
+            ) : (
+              <StorageCreateFolderForm currentPath={currentPath} disabled={disabled} compact />
+            )}
+          </div>
         </div>
       ) : null}
     </div>
