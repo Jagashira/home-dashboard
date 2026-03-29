@@ -114,6 +114,7 @@ export default async function StoragePage({ searchParams }: StoragePageProps) {
             libraryLabel={storage.libraryLabel}
             readOnly={storage.readOnly}
             currentPath={storage.currentPath}
+            breadcrumbs={storage.breadcrumbs}
             entries={storage.entries}
             directories={directories}
           />

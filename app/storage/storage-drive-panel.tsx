@@ -3,13 +3,19 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StorageDirectoryOption, StorageItem, StorageLibraryKey } from "@/lib/storage";
+import type {
+  StorageBreadcrumb,
+  StorageDirectoryOption,
+  StorageItem,
+  StorageLibraryKey
+} from "@/lib/storage";
 
 type StorageDrivePanelProps = {
   libraryKey: StorageLibraryKey;
   libraryLabel: string;
   readOnly: boolean;
   currentPath: string;
+  breadcrumbs: StorageBreadcrumb[];
   entries: StorageItem[];
   directories: StorageDirectoryOption[];
 };
@@ -192,6 +198,7 @@ export function StorageDrivePanel({
   libraryLabel,
   readOnly,
   currentPath,
+  breadcrumbs,
   entries,
   directories
 }: StorageDrivePanelProps) {
@@ -516,7 +523,23 @@ export function StorageDrivePanel({
       <div className="border-b border-slate-200 bg-white px-5 py-4 lg:px-6">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0 whitespace-nowrap text-sm font-medium text-slate-500">
-            {currentPath ? `${libraryLabel} / ${currentPath}` : libraryLabel}
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+              {breadcrumbs.map((breadcrumb, index) => (
+                <div key={`${breadcrumb.path || "root"}-${index}`} className="flex min-w-0 items-center gap-2">
+                  {index > 0 ? <span className="text-slate-300">/</span> : null}
+                  {index === breadcrumbs.length - 1 ? (
+                    <span className="truncate text-slate-500">{breadcrumb.label}</span>
+                  ) : (
+                    <Link
+                      href={buildStorageHref(breadcrumb.path, libraryKey)}
+                      className="truncate text-blue-600 hover:no-underline"
+                    >
+                      {breadcrumb.label}
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="relative min-w-0">
