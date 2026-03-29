@@ -134,6 +134,19 @@ export async function createBudgetEntry(input: BudgetEntryInput) {
   return { id };
 }
 
+export async function getExpenseTotalForDate(date: string) {
+  await ensureBudgetSchema();
+
+  const rows = await prisma.$queryRaw<Array<{ total: number | bigint | string | null }>>`
+    SELECT COALESCE(SUM(amount), 0) AS total
+    FROM "BudgetEntry"
+    WHERE entryType = 'EXPENSE'
+      AND date = ${date}
+  `;
+
+  return toSafeNumber(rows[0]?.total);
+}
+
 export async function updateExpenseEntry(
   id: string,
   input: {

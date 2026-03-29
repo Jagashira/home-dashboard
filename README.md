@@ -65,8 +65,13 @@ NEWS_API_KEY=
 DATABASE_URL=file:/data/news/news.db
 APP_BASE_URL=http://localhost:3000
 FETCH_SECRET=
+HA_SECRET=
 OPENAI_API=
 STORAGE_BASE_PATH=./data/storage-dev
+HA_HOME_URI=/dashboard-mobile/home
+HA_EXPENSE_URI=/dashboard-mobile/expense
+HA_TASK_URI=/dashboard-mobile/tasks
+HA_NEWS_URI=/dashboard-mobile/news
 ```
 
 - `NEWS_API_KEY` が未設定でも動作します（NewsAPIソースは自動スキップ）。
@@ -134,6 +139,69 @@ npm run db:seed
 ```
 
 `FETCH_SECRET` を設定した場合は `x-fetch-secret` ヘッダまたは `?secret=` が必須です。
+
+## Home Assistant 通知連携
+
+- `GET /api/ha/notifications/evening`
+- `GET /api/ha/notifications/morning-news?limit=5`
+- `HA_SECRET` を設定した場合は `x-ha-secret` ヘッダまたは `?secret=` が必須です。
+- `HA_HOME_URI` `HA_EXPENSE_URI` `HA_TASK_URI` `HA_NEWS_URI` は Home Assistant Companion App で開くダッシュボードパスです。
+
+23:00 向けの evening API は今日の支出合計と未完了 task 数を集約し、iPhone 通知向けの payload を返します。6:00 向けの morning-news API は最新ニュース一覧と通知 payload を返します。
+
+返却される `notification` の例:
+
+```json
+{
+  "title": "今日の支出と task 確認",
+  "message": "2026-03-29 の支出は 2,480 円です。\n未完了 task は 3 件あります。",
+  "data": {
+    "tag": "daily-evening-checkin",
+    "group": "daily-checkins",
+    "url": "/dashboard-mobile/home",
+    "actions": [
+      { "action": "URI", "title": "支出を入力", "uri": "/dashboard-mobile/expense" },
+      { "action": "URI", "title": "taskを追加", "uri": "/dashboard-mobile/tasks" }
+    ],
+    "push": {
+      "interruptionLevel": "active"
+    }
+  }
+}
+```
+
+Home Assistant 側の利用イメージ:
+
+```yaml
+rest_command:
+  home_dashboard_evening_notification:
+    url: "http://YOUR_SERVER:3000/api/ha/notifications/evening"
+    method: GET
+    headers:
+      x-ha-secret: !secret home_dashboard_ha_secret
+
+automation:
+  - alias: "23時の支出確認"
+    triggers:
+      - trigger: time
+        at: "23:00:00"
+    actions:
+      - action: rest_command.home_dashboard_evening_notification
+        response_variable: evening_payload
+      - action: notify.mobile_app_your_iphone
+        data:
+          title: "{{ evening_payload['content']['notification']['title'] }}"
+          message: "{{ evening_payload['content']['notification']['message'] }}"
+          data: "{{ evening_payload['content']['notification']['data'] }}"
+```
+
+この API は `title` `message` `data` を `notification` キーで返すので、automation 側では `evening_payload['content']['notification']` を展開して使います。
+
+サンプル YAML:
+- [home_dashboard_notifications.yaml](/Users/jagashira/work/github.com/Jagashira/home-dashboard/docs/home-assistant/home_dashboard_notifications.yaml)
+- [secrets.yaml.example](/Users/jagashira/work/github.com/Jagashira/home-dashboard/docs/home-assistant/secrets.yaml.example)
+
+`notify.mobile_app_your_iphone` は、Home Assistant の「開発者ツール > アクション」で確認した実際の iPhone 通知サービス名に置き換えて使ってください。
 
 ## 各ニュースソースの役割
 

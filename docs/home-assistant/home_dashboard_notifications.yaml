@@ -1,0 +1,39 @@
+rest_command:
+  home_dashboard_evening_notification:
+    url: "http://192.168.11.12:3000/api/ha/notifications/evening"
+    method: get
+    headers:
+      x-ha-secret: !secret home_dashboard_ha_secret
+
+  home_dashboard_morning_news_notification:
+    url: "http://192.168.11.12:3000/api/ha/notifications/morning-news?limit=5"
+    method: get
+    headers:
+      x-ha-secret: !secret home_dashboard_ha_secret
+
+automation:
+  - alias: "Home Dashboard 23時通知"
+    triggers:
+      - trigger: time
+        at: "23:00:00"
+    actions:
+      - action: rest_command.home_dashboard_evening_notification
+        response_variable: evening_payload
+      - action: notify.mobile_app_your_iphone
+        data:
+          title: "{{ evening_payload['content']['notification']['title'] }}"
+          message: "{{ evening_payload['content']['notification']['message'] }}"
+          data: "{{ evening_payload['content']['notification']['data'] }}"
+
+  - alias: "Home Dashboard 6時ニュース通知"
+    triggers:
+      - trigger: time
+        at: "06:00:00"
+    actions:
+      - action: rest_command.home_dashboard_morning_news_notification
+        response_variable: morning_payload
+      - action: notify.mobile_app_your_iphone
+        data:
+          title: "{{ morning_payload['content']['notification']['title'] }}"
+          message: "{{ morning_payload['content']['notification']['message'] }}"
+          data: "{{ morning_payload['content']['notification']['data'] }}"
