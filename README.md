@@ -72,6 +72,7 @@ HA_HOME_URI=/dashboard-mobile/home
 HA_EXPENSE_URI=/dashboard-mobile/expense
 HA_TASK_URI=/dashboard-mobile/tasks
 HA_NEWS_URI=/dashboard-mobile/news
+HA_SHOP_URI=/dashboard-mobile/shop
 HA_WEEKLY_REVIEW_URI=
 IMMICH_BASE_URL=
 IMMICH_API_KEY=
@@ -149,9 +150,10 @@ npm run db:seed
 
 - `GET /api/ha/notifications/evening`
 - `GET /api/ha/notifications/morning-news?limit=5`
+- `GET /api/ha/notifications/shopping`
 - `GET /api/ha/notifications/weekly-review`
 - `HA_SECRET` を設定した場合は `x-ha-secret` ヘッダまたは `?secret=` が必須です。
-- `HA_HOME_URI` `HA_EXPENSE_URI` `HA_TASK_URI` `HA_NEWS_URI` は Home Assistant Companion App で開くダッシュボードパスです。
+- `HA_HOME_URI` `HA_EXPENSE_URI` `HA_TASK_URI` `HA_NEWS_URI` `HA_SHOP_URI` は Home Assistant Companion App で開くダッシュボードパスです。
 
 23:00 向けの evening API は今日の支出合計と未完了 task 数を集約し、iPhone 通知向けの payload を返します。6:00 向けの morning-news API は最新ニュース一覧と通知 payload を返します。
 

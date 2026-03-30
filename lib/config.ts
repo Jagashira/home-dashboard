@@ -31,6 +31,7 @@ export const APP_CONFIG = {
   haExpenseUri: process.env.HA_EXPENSE_URI || "/dashboard-mobile/expense",
   haTaskUri: process.env.HA_TASK_URI || "/dashboard-mobile/tasks",
   haNewsUri: process.env.HA_NEWS_URI || "/dashboard-mobile/news",
+  haShopUri: process.env.HA_SHOP_URI || "/dashboard-mobile/shop",
   haWeeklyReviewUri:
     process.env.HA_WEEKLY_REVIEW_URI || `${process.env.APP_BASE_URL || "http://localhost:3000"}/review/week`,
   immichBaseUrl: process.env.IMMICH_BASE_URL || process.env.NEXT_PUBLIC_IMMICH_URL || "",
