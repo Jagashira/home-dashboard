@@ -1,0 +1,34 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+type Params = { params: Promise<{ id: string; entryId: string }> };
+
+export async function PATCH(request: NextRequest, { params }: Params) {
+  try {
+    const { entryId } = await params;
+    const payload = await request.json();
+    const data: { eventType?: string; title?: string; status?: string; note?: string | null; eventDate?: Date } = {};
+    if (typeof payload.eventType === "string") data.eventType = payload.eventType.trim();
+    if (typeof payload.title === "string") data.title = payload.title.trim();
+    if (typeof payload.status === "string") data.status = payload.status.trim();
+    if (typeof payload.note === "string") data.note = payload.note.trim() || null;
+    if (typeof payload.eventDate === "string" && payload.eventDate) {
+      const date = new Date(`${payload.eventDate}T00:00:00.000Z`);
+      if (!Number.isNaN(date.getTime())) data.eventDate = date;
+    }
+    const item = await prisma.jobTimeline.update({ where: { id: entryId }, data });
+    return NextResponse.json({ ok: true, item });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  try {
+    const { entryId } = await params;
+    await prisma.jobTimeline.delete({ where: { id: entryId } });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "failed" }, { status: 500 });
+  }
+}

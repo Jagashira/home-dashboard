@@ -83,6 +83,7 @@ IMMICH_API_KEY=
 - GPT 使用量のホーム表示は `OPENAI_ADMIN_API_KEY` だけで取得します。表示するのは「今日の使用料金」「今月の使用料金」「token数」です。
 - `STORAGE_BASE_PATH` は `/storage` ページが読むベースディレクトリです。Mac 開発では `./data/storage-dev` のようなローカルディレクトリ、home-server では NAS 側の実パスを設定してください。
 - `IMMICH_BASE_URL` と `IMMICH_API_KEY` を設定すると、ホーム画面と `GET /api/immich/summary` で Immich の storage/statistics を表示できます。
+- `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` `GMAIL_REDIRECT_URI` を設定すると、`/job-hunting` から Gmail OAuth を開始して未読件数を取得できます。リダイレクト URI は Google Cloud 側にも同じ値で登録してください。
 - `HA_WEEKLY_REVIEW_URI` を設定すると、週次レビュー通知のタップ先を Home Assistant 用パスか外部 URL に上書きできます。未設定時は `${APP_BASE_URL}/review/week` を使います。
 
 ## 開発環境起動

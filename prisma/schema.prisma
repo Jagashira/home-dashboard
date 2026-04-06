@@ -92,3 +92,97 @@ model ShoppingItem {
   @@index([inventoryItemId])
   @@index([createdAt])
 }
+
+model JobSite {
+  id           String   @id @default(cuid())
+  name         String
+  url          String
+  purpose      String
+  loginId      String
+  password     String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([displayOrder])
+  @@index([name])
+}
+
+model JobCompany {
+  id           String   @id @default(cuid())
+  companyName  String
+  myPageUrl    String
+  loginId      String
+  password     String
+  status       String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  essays       JobEssay[]
+  submissions  JobSubmission[]
+  timelines    JobTimeline[]
+  usefulLinks  JobUsefulLink[]
+
+  @@index([displayOrder])
+  @@index([companyName])
+  @@index([status])
+}
+
+model JobEssay {
+  id          String     @id @default(cuid())
+  companyId   String
+  company     JobCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  question    String
+  answer      String
+  submittedAt DateTime?
+  note        String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([companyId, createdAt])
+}
+
+model JobSubmission {
+  id          String     @id @default(cuid())
+  companyId   String
+  company     JobCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  itemType    String
+  status      String
+  submittedAt DateTime?
+  storagePath String?
+  note        String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([companyId, createdAt])
+  @@index([status])
+}
+
+model JobTimeline {
+  id          String     @id @default(cuid())
+  companyId   String
+  company     JobCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  eventType   String
+  title       String
+  eventDate   DateTime
+  status      String
+  note        String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([companyId, eventDate])
+  @@index([status])
+}
+
+model JobUsefulLink {
+  id        String     @id @default(cuid())
+  companyId String
+  company   JobCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  label     String
+  url       String
+  note      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([companyId, createdAt])
+}

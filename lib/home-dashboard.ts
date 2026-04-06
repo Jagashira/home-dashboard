@@ -277,6 +277,11 @@ export async function getHomeDashboardData(now = new Date()): Promise<HomeDashbo
         description: "買い物メモと候補整理"
       },
       {
+        title: "Job Hunting",
+        href: "/job-hunting",
+        description: "就活サイト、応募企業、ES、Gmail の管理"
+      },
+      {
         title: "Storage",
         href: "/storage",
         description: immich?.available ? `NAS ${immich.storage.availableLabel} 空き / Immich ${immich.stats.usageLabel}` : "ストレージと Photos への入口"
