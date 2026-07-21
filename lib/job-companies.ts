@@ -7,6 +7,7 @@ function toJobCompany(company: {
   myPageUrl: string;
   loginId: string;
   password: string;
+  storagePath: string | null;
   status: string;
   displayOrder: number;
   createdAt: Date;
@@ -18,6 +19,7 @@ function toJobCompany(company: {
     myPageUrl: company.myPageUrl,
     loginId: company.loginId,
     password: company.password,
+    storagePath: company.storagePath ?? "",
     status: company.status as JobCompany["status"],
     displayOrder: company.displayOrder,
     createdAt: company.createdAt.toISOString(),

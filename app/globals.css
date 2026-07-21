@@ -2658,7 +2658,7 @@ body.ha-house-page {
 }
 
 .job-stat-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .job-hero-copy {
@@ -2720,6 +2720,17 @@ body.ha-house-page {
   margin: 0.15rem 0 0.25rem;
   font-size: clamp(1.5rem, 2.4vw, 1.95rem);
   letter-spacing: -0.04em;
+}
+
+.job-storage-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.job-storage-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .job-section-title {

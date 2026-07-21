@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     const myPageUrl = normalizeString(payload.myPageUrl);
     const loginId = normalizeString(payload.loginId);
     const password = typeof payload.password === "string" ? payload.password : "";
+    const storagePath = normalizeString(payload.storagePath);
     const status = normalizeString(payload.status);
     const displayOrder = normalizeOrder(payload.displayOrder, 0);
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const company = await prisma.jobCompany.create({
-      data: { companyName, myPageUrl, loginId, password, status, displayOrder }
+      data: { companyName, myPageUrl, loginId, password, storagePath, status, displayOrder }
     });
 
     return NextResponse.json({ ok: true, company });

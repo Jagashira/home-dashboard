@@ -23,6 +23,7 @@ type CompanyForm = {
   myPageUrl: string;
   loginId: string;
   password: string;
+  storagePath: string;
   status: CompanyEntryStatus;
   displayOrder: string;
 };
@@ -45,6 +46,7 @@ const emptyCompanyForm: CompanyForm = {
   myPageUrl: "",
   loginId: "",
   password: "",
+  storagePath: "",
   status: "draft",
   displayOrder: "0"
 };
@@ -149,11 +151,25 @@ function IconSpark() {
   );
 }
 
+function buildStorageHref(storagePath: string) {
+  const trimmed = storagePath.trim();
+  if (!trimmed) return "/storage";
+  const params = new URLSearchParams({ library: "storage", path: trimmed });
+  return `/storage?${params.toString()}`;
+}
+
+function statusSortRank(status: CompanyEntryStatus) {
+  if (status === "finished") return 99;
+  if (status === "internship_done") return 95;
+  if (status === "offer") return 85;
+  return 0;
+}
+
 function statusTone(status: CompanyEntryStatus) {
   if (status === "draft" || status === "internship_interested") return "draft";
   if (status === "internship_applied" || status === "applied") return "applied";
-  if (status === "internship_interview" || status === "es_passed" || status === "interview" || status === "final_interview") return "progress";
-  if (status === "internship_offer" || status === "result_waiting") return "waiting";
+  if (status === "internship_interview" || status === "internship_active" || status === "es_passed" || status === "interview" || status === "final_interview") return "progress";
+  if (status === "internship_offer" || status === "internship_waiting" || status === "result_waiting") return "waiting";
   if (status === "offer") return "offer";
   return "finished";
 }
@@ -200,6 +216,13 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
   const [companyEditorOpen, setCompanyEditorOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
   const [mounted, setMounted] = useState(false);
+  const sortedCompanies = [...companies].sort((left, right) => {
+    const statusDiff = statusSortRank(left.status) - statusSortRank(right.status);
+    if (statusDiff !== 0) return statusDiff;
+    const orderDiff = left.displayOrder - right.displayOrder;
+    if (orderDiff !== 0) return orderDiff;
+    return left.companyName.localeCompare(right.companyName, "ja");
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -267,6 +290,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
       myPageUrl: company.myPageUrl,
       loginId: company.loginId,
       password: company.password,
+      storagePath: company.storagePath,
       status: company.status,
       displayOrder: String(company.displayOrder)
     });
@@ -467,6 +491,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                   <label className="field"><span>表示順</span><input inputMode="numeric" value={companyForm.displayOrder} onChange={(event) => setCompanyForm((prev) => ({ ...prev, displayOrder: event.target.value }))} /></label>
                   <label className="field"><span>Login ID</span><input value={companyForm.loginId} onChange={(event) => setCompanyForm((prev) => ({ ...prev, loginId: event.target.value }))} /></label>
                   <label className="field"><span>Password</span><input value={companyForm.password} onChange={(event) => setCompanyForm((prev) => ({ ...prev, password: event.target.value }))} /></label>
+                  <label className="field"><span>Storage Path</span><input value={companyForm.storagePath} onChange={(event) => setCompanyForm((prev) => ({ ...prev, storagePath: event.target.value }))} placeholder="job-hunting/company-name" /></label>
                 </div>
                 <div className="job-site-form-actions">
                   <button className="button-primary" disabled={companySaving} type="submit">{editingCompanyId ? "更新する" : "追加する"}</button>
@@ -490,7 +515,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
               <div className="stack-sm">
                 <p className="label-caption">JOB HUNTING</p>
                 <h1 className="budget-title">{data.hero.title}</h1>
-                <div className="job-focus-pill">{data.hero.focus}</div>
+                {data.hero.focus ? <div className="job-focus-pill">{data.hero.focus}</div> : null}
               </div>
               <div className="job-hero-actions">
                 <Link className="button-primary job-action-link" href={data.mail.gmailUrl} target="_blank" rel="noreferrer"><IconMail /><span>Gmail を開く</span></Link>
@@ -501,8 +526,6 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
             <section className="job-stat-grid">
               <StatCard label="Active Companies" value={companies.filter((company) => isActiveCompany(company.status)).length} note="進行中の応募先" />
               <StatCard label="Tracked Sites" value={sites.length} note="管理している就活サイト" />
-              <StatCard label="Pending Status" value={companies.filter((company) => needsAttention(company.status)).length} note="状態更新が必要な企業" />
-              <StatCard label="Mail Presets" value={data.mail.searchPresets.length} note="Gmail 検索プリセット" />
             </section>
           </div>
         </section>
@@ -517,7 +540,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                 </div>
               </div>
               <div className="job-site-list">
-                {companies.map((company) => (
+                {sortedCompanies.map((company) => (
                   <article className="job-site-row job-company-row" key={company.id}>
                     <div className="job-site-row-main">
                       <div className="job-company-row-head">
@@ -529,6 +552,9 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                     </div>
                     <div className="job-site-row-actions">
                       <Link className="button-secondary" href={company.myPageUrl} target="_blank" rel="noreferrer">マイページ</Link>
+                      <Link className="icon-button" href={buildStorageHref(company.storagePath)} aria-label={`${company.companyName} のファイルを開く`}>
+                        <IconFolder />
+                      </Link>
                       <button className="icon-button" type="button" onClick={() => { setCopyStatus(""); setCredentialTarget({ title: company.companyName, loginId: company.loginId, password: company.password }); }} aria-label={`${company.companyName} の認証情報を表示`}><IconEye /></button>
                       <button className="icon-button" type="button" onClick={() => startEditCompany(company)} aria-label={`${company.companyName} を編集`}><IconEdit /></button>
                       <button className="icon-button danger" type="button" onClick={() => deleteCompany(company)} aria-label={`${company.companyName} を削除`}><IconTrash /></button>

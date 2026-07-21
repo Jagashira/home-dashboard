@@ -114,6 +114,7 @@ model JobCompany {
   myPageUrl    String
   loginId      String
   password     String
+  storagePath  String?
   status       String
   displayOrder Int      @default(0)
   createdAt    DateTime @default(now())

@@ -28,6 +28,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       myPageUrl?: string;
       loginId?: string;
       password?: string;
+      storagePath?: string;
       status?: string;
       displayOrder?: number;
     } = {};
@@ -39,6 +40,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const loginId = normalizeString(payload.loginId);
     if (loginId !== undefined) data.loginId = loginId;
     if (typeof payload.password === "string") data.password = payload.password;
+    const storagePath = normalizeString(payload.storagePath);
+    if (storagePath !== undefined) data.storagePath = storagePath;
     const status = normalizeString(payload.status);
     if (status !== undefined && VALID_STATUS.has(status as typeof COMPANY_STATUS_OPTIONS[number]["value"])) data.status = status;
     const displayOrder = normalizeOrder(payload.displayOrder);

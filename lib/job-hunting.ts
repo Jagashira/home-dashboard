@@ -16,6 +16,8 @@ export type CompanyEntryStatus =
   | "internship_applied"
   | "internship_interview"
   | "internship_offer"
+  | "internship_waiting"
+  | "internship_active"
   | "internship_done"
   | "applied"
   | "es_passed"
@@ -30,7 +32,9 @@ export const COMPANY_STATUS_OPTIONS: Array<{ value: CompanyEntryStatus; label: s
   { value: "internship_interested", label: "インターン検討中" },
   { value: "internship_applied", label: "インターン応募済み" },
   { value: "internship_interview", label: "インターン面接中" },
-  { value: "internship_offer", label: "インターン結果待ち" },
+  { value: "internship_offer", label: "インターン参加決定" },
+  { value: "internship_waiting", label: "インターン開始待ち" },
+  { value: "internship_active", label: "インターン中" },
   { value: "internship_done", label: "インターン終了" },
   { value: "applied", label: "本選考応募済み" },
   { value: "es_passed", label: "ES通過" },
@@ -47,6 +51,7 @@ export type JobCompany = {
   myPageUrl: string;
   loginId: string;
   password: string;
+  storagePath: string;
   status: CompanyEntryStatus;
   displayOrder: number;
   createdAt?: string;
@@ -213,6 +218,7 @@ export const DEFAULT_JOB_COMPANIES: Array<Omit<JobCompany, "id" | "createdAt" | 
     myPageUrl: "https://careers.mercari.com/",
     loginId: "jobhunt+mercari@gmail.com",
     password: "",
+    storagePath: "",
     status: "applied",
     displayOrder: 10
   },
@@ -221,6 +227,7 @@ export const DEFAULT_JOB_COMPANIES: Array<Omit<JobCompany, "id" | "createdAt" | 
     myPageUrl: "https://hrmos.co/pages/linecorp/jobs",
     loginId: "jobhunt+ly@gmail.com",
     password: "",
+    storagePath: "",
     status: "es_passed",
     displayOrder: 20
   },
@@ -229,6 +236,7 @@ export const DEFAULT_JOB_COMPANIES: Array<Omit<JobCompany, "id" | "createdAt" | 
     myPageUrl: "https://www.cyberagent.co.jp/careers/",
     loginId: "jobhunt+ca@gmail.com",
     password: "",
+    storagePath: "",
     status: "draft",
     displayOrder: 30
   }
@@ -243,6 +251,7 @@ function countPendingActions(companies: JobCompany[]) {
     company.status === "draft" ||
     company.status === "internship_interested" ||
     company.status === "internship_offer" ||
+    company.status === "internship_waiting" ||
     company.status === "applied" ||
     company.status === "result_waiting"
   ).length;
@@ -301,7 +310,7 @@ export function getJobHuntingStaticData(companies: JobCompany[] = []) {
       title: "Job Hunting Hub",
       description:
         "応募先ごとの ES・提出物・メール動線を一つの画面にまとめ、どの企業に何を出したかが混ざらない状態をつくる。",
-      focus: "今週は応募先の状態更新とマイページ管理を優先"
+      focus: ""
     },
     summary: {
       activeCompanies: countActiveCompanies(companies),
