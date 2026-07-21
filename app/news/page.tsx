@@ -26,7 +26,7 @@ export default async function NewsPage({ searchParams }: { searchParams?: Promis
     const resolved = searchParams ? await searchParams : {};
     const topic = getString(resolved.topic);
 
-    const topics = listTopics();
+    const topics = listTopics().filter((row) => row.isActive);
     const latestRun = getLatestFetchRun();
     const items = listArticles({ topic: topic || undefined, limit: 200 });
 

@@ -5,7 +5,11 @@ import { fetchFromRss } from "@/lib/clients/rss";
 import { fetchFromYoutube } from "@/lib/clients/youtube";
 import { fetchFromReddit } from "@/lib/clients/reddit";
 import { fetchArticleContent } from "@/lib/clients/article-fetcher";
-import { insertArticle } from "@/lib/repositories/articles";
+import {
+  getArticleAnalysisByUrl,
+  insertArticle,
+  updateSemiconductorAnalysis
+} from "@/lib/repositories/articles";
 import { finishFetchRun, startFetchRun } from "@/lib/repositories/fetch-runs";
 import { getSettings } from "@/lib/repositories/settings";
 import { listSources } from "@/lib/repositories/sources";
@@ -13,15 +17,40 @@ import { listTopics } from "@/lib/repositories/topics";
 import { allocateTopics } from "./allocate-topics";
 import { classifyLanguage } from "./classify-language";
 import { normalizeArticles } from "./normalize-article";
+import { analyzeSemiconductorArticle } from "./analyze-semiconductor-article";
 import { NormalizedArticle, Source } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/config";
 
+const MAX_SEMICONDUCTOR_ANALYSIS_BACKFILL_PER_RUN = Number(
+  process.env.MAX_SEMICONDUCTOR_ANALYSIS_BACKFILL_PER_RUN ?? "5"
+);
+
 const QUERY_SYNONYMS: Record<string, string[]> = {
   "半導体": ["semiconductor", "semiconductors", "chiplet", "foundry", "fab", "tsmc", "nvidia", "hbm", "euv"],
-  ai: ["artificial intelligence", "genai", "llm", "machine learning", "生成AI", "大規模言語モデル"],
-  IT: ["tech", "technology", "software", "startup", "cloud", "developer", "security", "saas"],
-  "世界": ["international", "global", "geopolitics", "overseas", "world news", "diplomacy"],
-  "日本": ["japan", "domestic", "government", "industry", "economy", "disaster"]
+  "社会人必須": [
+    "economy",
+    "business",
+    "security",
+    "government",
+    "policy",
+    "market",
+    "compliance",
+    "enterprise",
+    "employment",
+    "infrastructure",
+    "supply chain",
+    "企業",
+    "経済",
+    "政策",
+    "法改正",
+    "金融",
+    "セキュリティ",
+    "雇用",
+    "インフラ",
+    "税",
+    "年金",
+    "規制"
+  ]
 };
 
 const TOPIC_RULES: Record<string, { include: string[]; exclude: string[] }> = {
@@ -29,61 +58,79 @@ const TOPIC_RULES: Record<string, { include: string[]; exclude: string[] }> = {
     include: ["半導体", "semiconductor", "chiplet", "foundry", "tsmc", "hbm", "euv", "gpu", "cpu", "asml"],
     exclude: ["potato chips", "banana chips", "snack", "recipe", "ホタテ", "旅行", "クルーズ"]
   },
-  AI: {
-    include: ["ai", "人工知能", "生成ai", "llm", "machine learning", "chatgpt", "gpt", "anthropic", "gemini"],
-    exclude: ["芸能", "celebrity", "katherine heigl", "recipe"]
-  },
-  IT: {
+  "社会人必須": {
     include: [
-      "it",
-      "tech",
-      "technology",
-      "software",
-      "security",
-      "クラウド",
-      "os",
-      "アプリ",
-      "ガジェット",
-      "developer",
-      "saas"
-    ],
-    exclude: ["旅行", "グルメ", "レシピ", "football", "soccer", "entertainment"]
-  },
-  "世界": {
-    include: [
-      "世界",
-      "国際",
-      "海外",
-      "international",
-      "global",
-      "geopolitics",
-      "外交",
-      "米国",
-      "中国",
-      "欧州",
-      "ukraine",
-      "russia",
-      "taiwan"
-    ],
-    exclude: ["芸能", "celebrity", "グルメ", "recipe", "football", "soccer"]
-  },
-  "日本": {
-    include: [
-      "日本",
-      "国内",
+      "経済",
+      "景気",
+      "金融",
+      "市場",
+      "為替",
+      "金利",
+      "インフレ",
       "政府",
-      "首相",
-      "国会",
+      "政策",
+      "法改正",
+      "規制",
+      "制度",
+      "税",
+      "年金",
+      "企業",
+      "決算",
+      "業界",
+      "サプライチェーン",
+      "雇用",
+      "賃上げ",
+      "インフラ",
+      "電力",
+      "物流",
+      "security",
+      "compliance",
+      "enterprise",
+      "情報漏えい",
+      "サイバー",
       "経産省",
       "日銀",
+      "総務省",
+      "財務省",
       "災害",
       "地震",
-      "事故",
-      "選挙",
-      "economy",
-      "industry"
+      "選挙"
     ],
-    exclude: ["芸能", "celebrity", "グルメ", "recipe", "baseball", "soccer"]
+    exclude: [
+      "芸能",
+      "celebrity",
+      "グルメ",
+      "recipe",
+      "baseball",
+      "soccer",
+      "恋愛",
+      "アニメ",
+      "ゲームレビュー",
+      "パズル",
+      "名画",
+      "レビュー",
+      "セール",
+      "割引",
+      "クーポン",
+      "❤️",
+      "#",
+      "tiktok",
+      "youtube",
+      "推し",
+      "かわいい",
+      "悲報",
+      "ブチぎて",
+      "！！！！",
+      "!!!",
+      "blog.jp",
+      "軍事",
+      "海軍",
+      "戦争",
+      "高齢者",
+      "健康寿命",
+      "認知症",
+      "ボケる"
+    ]
   }
 };
 
@@ -233,6 +280,7 @@ export async function runFetchNews() {
 
   let totalFetched = 0;
   let inserted = 0;
+  let semiconductorAnalyzed = 0;
   const sourceRawCount: Record<string, number> = {};
   const sourceInsertedCount: Record<string, number> = {};
   try {
@@ -250,7 +298,7 @@ export async function runFetchNews() {
         sourceRawCount[key] = (sourceRawCount[key] ?? 0) + value;
       }
       const relevanceFiltered = collected.items.filter((item) =>
-        isRelevantToTopic(row.topic.name, `${item.title}\n${item.content ?? ""}`)
+        isRelevantToTopic(row.topic.name, `${item.title}\n${item.sourceLabel}\n${item.content ?? ""}`)
       );
       const normalized = normalizeArticles(relevanceFiltered, settings.preferJapanese);
       const selected = selectWithJapanesePriority(normalized, row.count, settings.preferJapanese);
@@ -260,8 +308,46 @@ export async function runFetchNews() {
         const source = sources.find((s) => s.sourceType === item.sourceType);
         if (!source) continue;
 
+        const existingArticle = getArticleAnalysisByUrl(item.url);
+        if (existingArticle) {
+          if (
+            row.topic.name === "半導体" &&
+            !existingArticle.semiconductor_analysis &&
+            semiconductorAnalyzed < MAX_SEMICONDUCTOR_ANALYSIS_BACKFILL_PER_RUN
+          ) {
+            const existingContent = existingArticle.content ?? item.content ?? (await fetchArticleContent(item.url));
+            const analysis = await analyzeSemiconductorArticle({
+              title: item.title,
+              url: item.url,
+              sourceLabel: item.sourceLabel,
+              content: existingContent
+            });
+            if (analysis) {
+              const analyzedAt = new Date().toISOString();
+              updateSemiconductorAnalysis(existingArticle.id, {
+                semiconductorAnalysis: analysis.text,
+                semiconductorAnalysisModel: analysis.model,
+                semiconductorAnalysisCostUsd: analysis.estimatedCostUsd,
+                semiconductorAnalysisCostJpy: analysis.estimatedCostJpy,
+                semiconductorAnalyzedAt: analyzedAt
+              });
+              semiconductorAnalyzed += 1;
+            }
+          }
+          continue;
+        }
+
         const content = item.content ?? (await fetchArticleContent(item.url));
         const lang = classifyLanguage(item.title, content);
+        const semiconductorAnalysis =
+          row.topic.name === "半導体"
+            ? await analyzeSemiconductorArticle({
+                title: item.title,
+                url: item.url,
+                sourceLabel: item.sourceLabel,
+                content
+              })
+            : null;
         const result = insertArticle({
           topicId: row.topic.id,
           sourceId: source.id,
@@ -274,6 +360,11 @@ export async function runFetchNews() {
           fetchedAt: item.fetchedAt,
           content: content ?? null,
           summary: null,
+          semiconductorAnalysis: semiconductorAnalysis?.text ?? null,
+          semiconductorAnalysisModel: semiconductorAnalysis?.model ?? null,
+          semiconductorAnalysisCostUsd: semiconductorAnalysis?.estimatedCostUsd ?? null,
+          semiconductorAnalysisCostJpy: semiconductorAnalysis?.estimatedCostJpy ?? null,
+          semiconductorAnalyzedAt: semiconductorAnalysis ? new Date().toISOString() : null,
           language: lang.language,
           isJapanese: lang.isJapanese,
           score: item.score ?? null
@@ -282,6 +373,9 @@ export async function runFetchNews() {
         inserted += changed;
         if (changed > 0) {
           sourceInsertedCount[item.sourceType] = (sourceInsertedCount[item.sourceType] ?? 0) + changed;
+          if (semiconductorAnalysis) {
+            semiconductorAnalyzed += 1;
+          }
         }
       }
     }
@@ -299,6 +393,7 @@ export async function runFetchNews() {
       totalRequested: settings.totalRequested,
       sourceRawCount,
       sourceInsertedCount,
+      semiconductorAnalyzed,
       status: "success" as const
     };
   } catch (error) {

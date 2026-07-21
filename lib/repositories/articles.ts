@@ -9,6 +9,11 @@ export type ArticleListRow = {
   published_at: string | null;
   topic_name: string;
   summary: string | null;
+  semiconductor_analysis: string | null;
+  semiconductor_analysis_model: string | null;
+  semiconductor_analysis_cost_usd: number | null;
+  semiconductor_analysis_cost_jpy: number | null;
+  semiconductor_analyzed_at: string | null;
   content: string | null;
   language: string | null;
   is_japanese: number;
@@ -29,6 +34,11 @@ export function insertArticle(input: {
   fetchedAt: string;
   content?: string | null;
   summary?: string | null;
+  semiconductorAnalysis?: string | null;
+  semiconductorAnalysisModel?: string | null;
+  semiconductorAnalysisCostUsd?: number | null;
+  semiconductorAnalysisCostJpy?: number | null;
+  semiconductorAnalyzedAt?: string | null;
   language: string;
   isJapanese: boolean;
   score?: number | null;
@@ -40,8 +50,10 @@ export function insertArticle(input: {
       `
       INSERT OR IGNORE INTO articles(
         topic_id, source_id, fetch_run_id, external_id, title, url, source_label,
-        published_at, fetched_at, content, summary, language, is_japanese, score, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        published_at, fetched_at, content, summary, semiconductor_analysis,
+        semiconductor_analysis_model, semiconductor_analysis_cost_usd, semiconductor_analysis_cost_jpy,
+        semiconductor_analyzed_at, language, is_japanese, score, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
     )
     .run(
@@ -56,11 +68,86 @@ export function insertArticle(input: {
       input.fetchedAt,
       input.content ?? null,
       input.summary,
+      input.semiconductorAnalysis ?? null,
+      input.semiconductorAnalysisModel ?? null,
+      input.semiconductorAnalysisCostUsd ?? null,
+      input.semiconductorAnalysisCostJpy ?? null,
+      input.semiconductorAnalyzedAt ?? null,
       input.language,
       input.isJapanese ? 1 : 0,
       input.score ?? null,
       now,
       now
+    );
+}
+
+export function articleUrlExists(url: string): boolean {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT 1 FROM articles WHERE url = ? LIMIT 1")
+    .get(url) as { "1": number } | undefined;
+  return Boolean(row);
+}
+
+export function getArticleAnalysisByUrl(url: string):
+  | {
+      id: number;
+      content: string | null;
+      semiconductor_analysis: string | null;
+    }
+  | undefined {
+  const db = getDb();
+  return db
+    .prepare(
+      `
+      SELECT id, content, semiconductor_analysis
+      FROM articles
+      WHERE url = ?
+      LIMIT 1
+    `
+    )
+    .get(url) as
+    | {
+        id: number;
+        content: string | null;
+        semiconductor_analysis: string | null;
+      }
+    | undefined;
+}
+
+export function updateSemiconductorAnalysis(
+  id: number,
+  input: {
+    semiconductorAnalysis: string;
+    semiconductorAnalysisModel: string;
+    semiconductorAnalysisCostUsd: number | null;
+    semiconductorAnalysisCostJpy: number | null;
+    semiconductorAnalyzedAt: string;
+  }
+) {
+  const db = getDb();
+  return db
+    .prepare(
+      `
+      UPDATE articles
+      SET
+        semiconductor_analysis=?,
+        semiconductor_analysis_model=?,
+        semiconductor_analysis_cost_usd=?,
+        semiconductor_analysis_cost_jpy=?,
+        semiconductor_analyzed_at=?,
+        updated_at=?
+      WHERE id=?
+    `
+    )
+    .run(
+      input.semiconductorAnalysis,
+      input.semiconductorAnalysisModel,
+      input.semiconductorAnalysisCostUsd,
+      input.semiconductorAnalysisCostJpy,
+      input.semiconductorAnalyzedAt,
+      new Date().toISOString(),
+      id
     );
 }
 
@@ -103,7 +190,10 @@ export function listArticles(filters?: {
     .prepare(
       `
       SELECT
-        a.id, a.title, a.url, a.source_label, a.published_at, a.summary, a.content,
+        a.id, a.title, a.url, a.source_label, a.published_at, a.summary,
+        a.semiconductor_analysis, a.semiconductor_analysis_model,
+        a.semiconductor_analysis_cost_usd, a.semiconductor_analysis_cost_jpy,
+        a.semiconductor_analyzed_at, a.content,
         a.language, a.is_japanese, a.score, a.is_hidden, a.is_favorite, t.name as topic_name, s.source_type
       FROM articles a
       JOIN topics t ON t.id = a.topic_id
@@ -122,7 +212,10 @@ export function getArticleById(id: number): ArticleListRow | undefined {
     .prepare(
       `
       SELECT
-        a.id, a.title, a.url, a.source_label, a.published_at, a.summary, a.content,
+        a.id, a.title, a.url, a.source_label, a.published_at, a.summary,
+        a.semiconductor_analysis, a.semiconductor_analysis_model,
+        a.semiconductor_analysis_cost_usd, a.semiconductor_analysis_cost_jpy,
+        a.semiconductor_analyzed_at, a.content,
         a.language, a.is_japanese, a.score, a.is_hidden, a.is_favorite, t.name as topic_name, s.source_type
       FROM articles a
       JOIN topics t ON t.id = a.topic_id

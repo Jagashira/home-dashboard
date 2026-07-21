@@ -11,6 +11,7 @@ export async function POST() {
       ok: true,
       totalFetched: result.totalFetched,
       inserted: result.inserted,
+      semiconductorAnalyzed: result.semiconductorAnalyzed,
       totalRequested: result.totalRequested,
       refreshedAt: new Date().toISOString()
     });

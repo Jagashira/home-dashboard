@@ -50,6 +50,11 @@ export function initSchema() {
       fetched_at TEXT NOT NULL,
       content TEXT,
       summary TEXT,
+      semiconductor_analysis TEXT,
+      semiconductor_analysis_model TEXT,
+      semiconductor_analysis_cost_usd REAL,
+      semiconductor_analysis_cost_jpy REAL,
+      semiconductor_analyzed_at TEXT,
       language TEXT,
       is_japanese INTEGER NOT NULL DEFAULT 0,
       score REAL,
@@ -78,11 +83,31 @@ export function initSchema() {
   const columns = db.prepare("PRAGMA table_info(articles)").all() as Array<{ name: string }>;
   const hasIsHidden = columns.some((c) => c.name === "is_hidden");
   const hasIsFavorite = columns.some((c) => c.name === "is_favorite");
+  const hasSemiconductorAnalysis = columns.some((c) => c.name === "semiconductor_analysis");
+  const hasSemiconductorAnalysisModel = columns.some((c) => c.name === "semiconductor_analysis_model");
+  const hasSemiconductorAnalysisCostUsd = columns.some((c) => c.name === "semiconductor_analysis_cost_usd");
+  const hasSemiconductorAnalysisCostJpy = columns.some((c) => c.name === "semiconductor_analysis_cost_jpy");
+  const hasSemiconductorAnalyzedAt = columns.some((c) => c.name === "semiconductor_analyzed_at");
   if (!hasIsHidden) {
     db.exec(`ALTER TABLE articles ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;`);
   }
   if (!hasIsFavorite) {
     db.exec(`ALTER TABLE articles ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;`);
+  }
+  if (!hasSemiconductorAnalysis) {
+    db.exec(`ALTER TABLE articles ADD COLUMN semiconductor_analysis TEXT;`);
+  }
+  if (!hasSemiconductorAnalysisModel) {
+    db.exec(`ALTER TABLE articles ADD COLUMN semiconductor_analysis_model TEXT;`);
+  }
+  if (!hasSemiconductorAnalysisCostUsd) {
+    db.exec(`ALTER TABLE articles ADD COLUMN semiconductor_analysis_cost_usd REAL;`);
+  }
+  if (!hasSemiconductorAnalysisCostJpy) {
+    db.exec(`ALTER TABLE articles ADD COLUMN semiconductor_analysis_cost_jpy REAL;`);
+  }
+  if (!hasSemiconductorAnalyzedAt) {
+    db.exec(`ALTER TABLE articles ADD COLUMN semiconductor_analyzed_at TEXT;`);
   }
 
   db.exec(`
@@ -110,9 +135,12 @@ export function seedDefaults() {
   `);
 
   const syncTopics = db.transaction(() => {
+    const desiredNames = new Set(DEFAULT_NEWS_TOPICS.map((topic) => topic.name));
+
     for (const topic of DEFAULT_NEWS_TOPICS) {
       const existing =
-        topicByName.get(topic.name) ?? (topic.name === "IT" ? topicByName.get("テック") : undefined);
+        topicByName.get(topic.name) ??
+        (topic.name === "社会人必須" ? topicByName.get("IT") ?? topicByName.get("テック") : undefined);
 
       if (existing) {
         updateTopic.run(
@@ -140,39 +168,28 @@ export function seedDefaults() {
       topicByName.set(topic.name, { id: Number(result.lastInsertRowid), name: topic.name });
     }
 
-    const legacyTech = topicRows.find((row) => row.name === "テック");
-    const canonicalIt = topicByName.get("IT");
-    if (legacyTech && canonicalIt && legacyTech.id !== canonicalIt.id) {
+    for (const row of topicRows) {
+      if (desiredNames.has(row.name)) continue;
       db.prepare(
         `
         UPDATE topics
         SET is_active=0, allocation_percent=0, updated_at=?
         WHERE id=?
       `
-      ).run(now, legacyTech.id);
+      ).run(now, row.id);
     }
   });
   syncTopics();
 
   const insertSource = db.prepare(`
     INSERT OR IGNORE INTO sources(source_type, source_name, is_active, config_json, created_at, updated_at)
-    VALUES (?, ?, 1, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
   const rssSource = db
     .prepare("SELECT id, is_active, config_json FROM sources WHERE source_type = ? LIMIT 1")
     .get("rss") as { id: number; is_active: number; config_json: string | null } | undefined;
 
   if (rssSource) {
-    let existingFeeds: string[] = [];
-    if (rssSource.config_json) {
-      try {
-        const config = JSON.parse(rssSource.config_json) as { feeds?: string[] };
-        existingFeeds = Array.isArray(config.feeds) ? config.feeds : [];
-      } catch {
-        existingFeeds = [];
-      }
-    }
-
     db.prepare(
       `
       UPDATE sources
@@ -181,7 +198,7 @@ export function seedDefaults() {
     `
     ).run(
       "RSS",
-      JSON.stringify({ feeds: dedupeFeedUrls([...DEFAULT_RSS_FEEDS, ...existingFeeds]) }),
+      JSON.stringify({ feeds: dedupeFeedUrls(DEFAULT_RSS_FEEDS) }),
       now,
       rssSource.id
     );
@@ -189,16 +206,43 @@ export function seedDefaults() {
     insertSource.run(
       "rss",
       "RSS",
+      1,
       JSON.stringify({ feeds: DEFAULT_RSS_FEEDS }),
       now,
       now
     );
   }
-  insertSource.run("gdelt", "GDELT", JSON.stringify({}), now, now);
-  insertSource.run("hackernews", "Hacker News", JSON.stringify({}), now, now);
-  insertSource.run("newsapi", "NewsAPI", JSON.stringify({}), now, now);
-  insertSource.run("youtube", "YouTube", JSON.stringify({}), now, now);
-  insertSource.run("reddit", "Reddit", JSON.stringify({}), now, now);
+  const desiredSources = [
+    { sourceType: "gdelt", sourceName: "GDELT", isActive: true, configJson: JSON.stringify({}) },
+    { sourceType: "hackernews", sourceName: "Hacker News", isActive: true, configJson: JSON.stringify({}) },
+    { sourceType: "newsapi", sourceName: "NewsAPI", isActive: true, configJson: JSON.stringify({}) },
+    { sourceType: "youtube", sourceName: "YouTube", isActive: false, configJson: JSON.stringify({}) },
+    { sourceType: "reddit", sourceName: "Reddit", isActive: false, configJson: JSON.stringify({}) }
+  ] as const;
+
+  for (const source of desiredSources) {
+    insertSource.run(
+      source.sourceType,
+      source.sourceName,
+      source.isActive ? 1 : 0,
+      source.configJson,
+      now,
+      now
+    );
+    db.prepare(
+      `
+      UPDATE sources
+      SET source_name=?, is_active=?, config_json=?, updated_at=?
+      WHERE source_type=?
+    `
+    ).run(
+      source.sourceName,
+      source.isActive ? 1 : 0,
+      source.configJson,
+      now,
+      source.sourceType
+    );
+  }
 
   db.prepare(
     `
