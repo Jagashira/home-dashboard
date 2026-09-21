@@ -4,7 +4,7 @@ Home Dashboard の `Task` テーブルを唯一の正本として、Home Assista
 
 ## API
 
-- URL: `http://<home-server>:3000/api/ha/todos`
+- URL: `http://100.73.222.16:3000/api/ha/todos`
 - Method: `GET`
 - 認証: `x-ha-secret` ヘッダーにHome Dashboardの `HA_SECRET` と同じ値を設定
 - 並び順: Web Applicationと同じ優先順位（期限切れ、期限直前、着手推奨、重要度、残工数）
@@ -64,7 +64,7 @@ home_dashboard_ha_secret: "Home DashboardのHA_SECRETと同じ値"
 
 ```yaml
 rest:
-  - resource: "http://<home-server>:3000/api/ha/todos?limit=3"
+  - resource: "http://100.73.222.16:3000/api/ha/todos?limit=3"
     scan_interval: 300
     headers:
       x-ha-secret: !secret home_dashboard_ha_secret
@@ -80,12 +80,12 @@ rest:
 
 先頭Todoは `state_attr('sensor.home_dashboard_todo', 'items')[0]['title']` で参照できます。更新間隔は5分（`scan_interval: 300`）を推奨します。ロック画面表示だけなら1分未満のポーリングは不要です。
 
-Home Assistantから到達できるLAN内アドレスを使い、`localhost` は指定しないでください。Todoの追加・更新・完了・削除は引き続きWeb Applicationで行います。
+`100.73.222.16` は `homeserver-desktop` のTailscaleアドレスです。Home AssistantとiPhoneを同じTailnetへ接続してください。Todoの追加・更新・完了・削除は引き続きWeb Applicationで行います。
 
 ## curl確認
 
 ```bash
 curl -sS \
   -H "x-ha-secret: $HA_SECRET" \
-  "http://<home-server>:3000/api/ha/todos?limit=3"
+  "http://100.73.222.16:3000/api/ha/todos?limit=3"
 ```
