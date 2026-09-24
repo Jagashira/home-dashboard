@@ -51,6 +51,12 @@ before(async () => {
       "utf8"
     )
   );
+  sqlite.exec(
+    readFileSync(
+      path.resolve(process.cwd(), "prisma/migrations/20260925000100_add_google_calendar_import/migration.sql"),
+      "utf8"
+    )
+  );
   sqlite.close();
   client = new PrismaClient({ datasources: { db: { url: `file:${databasePath}` } } });
   await client.$connect();

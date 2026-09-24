@@ -17,7 +17,8 @@
     "seed:planner": "tsx scripts/seed-task-planner.ts",
     "seed:shop": "tsx scripts/seed-shop.ts",
     "news:refresh": "tsx scripts/refresh-news.ts",
-    "news:fetch": "curl -X POST http://localhost:3000/api/fetch"
+    "news:fetch": "curl -X POST http://localhost:3000/api/fetch",
+    "google-calendar:import": "tsx --env-file=.env scripts/google-calendar-import.ts"
   },
   "engines": {
     "node": ">=20"

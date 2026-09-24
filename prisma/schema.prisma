@@ -8,14 +8,14 @@ datasource db {
 }
 
 model NewsItem {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   feedUrl     String
   title       String
   url         String
   summary     String?
   publishedAt DateTime?
-  dedupHash   String   @unique
-  createdAt   DateTime @default(now())
+  dedupHash   String    @unique
+  createdAt   DateTime  @default(now())
 
   @@index([createdAt])
 }
@@ -35,20 +35,20 @@ model CalendarEvent {
 }
 
 model Task {
-  id             String   @id @default(cuid())
-  title          String
-  note           String?
-  minutes        Int
-  progressMinutes Int     @default(0)
-  canSplit       Boolean  @default(true)
-  importance     Int
-  fatigue        Int
-  urgency        Int      @default(3)
-  dueDate        DateTime?
-  targetDate     DateTime?
-  status         String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String    @id @default(cuid())
+  title           String
+  note            String?
+  minutes         Int
+  progressMinutes Int       @default(0)
+  canSplit        Boolean   @default(true)
+  importance      Int
+  fatigue         Int
+  urgency         Int       @default(3)
+  dueDate         DateTime?
+  targetDate      DateTime?
+  status          String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([status])
   @@index([dueDate])
@@ -210,25 +210,121 @@ model OrganizerTask {
 }
 
 model OrganizerEvent {
-  id                    String   @id @default(cuid())
-  title                 String
-  description           String?
-  category              String
-  startAt               DateTime
-  endAt                 DateTime
-  allDay                 Boolean  @default(false)
+  id                     String    @id @default(cuid())
+  title                  String
+  description            String?
+  category               String
+  startAt                DateTime
+  endAt                  DateTime
+  allDay                 Boolean   @default(false)
   location               String?
-  shareWithPartner       Boolean  @default(false)
-  googleCalendarEventId  String?  @unique
-  timetreeEventId        String?  @unique
-  timetreeSyncStatus     String   @default("not_requested")
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  shareWithPartner       Boolean   @default(false)
+  googleCalendarId       String?
+  googleCalendarEventId  String?
+  googleEtag             String?
+  googleUpdatedAt        DateTime?
+  googleSyncStatus       String    @default("local_only")
+  lastSyncedAt           DateTime?
+  lastSyncedHash         String?
+  eventTimeZone          String?
+  googleRecurringEventId String?
+  originalStartTime      DateTime?
+  originalStartDate      String?
+  googleEventType        String?
+  googleStatus           String?
+  recurrenceJson         String?
+  startDate              String?
+  endDateExclusive       String?
+  timetreeEventId        String?   @unique
+  timetreeSyncStatus     String    @default("not_requested")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
+  @@unique([googleCalendarId, googleCalendarEventId])
   @@index([startAt])
   @@index([endAt])
   @@index([startAt, endAt])
   @@index([shareWithPartner, timetreeSyncStatus])
+  @@index([googleCalendarId, googleSyncStatus])
+}
+
+model GoogleCalendarMapping {
+  id                String    @id @default(cuid())
+  category          String    @unique
+  googleCalendarId  String    @unique
+  displayName       String
+  accessRole        String
+  timeZone          String?
+  enabled           Boolean   @default(true)
+  importCompletedAt DateTime?
+  outboundEnabledAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model GoogleCalendarSyncCursor {
+  id               String    @id @default(cuid())
+  googleCalendarId String    @unique
+  syncToken        String
+  lastFullSyncAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model GoogleCalendarSyncRun {
+  id                    String                          @id @default(cuid())
+  mode                  String
+  status                String
+  startedAt             DateTime                        @default(now())
+  finishedAt            DateTime?
+  previewExpiresAt      DateTime?
+  confirmationTokenHash String?
+  fingerprint           String?
+  summaryJson           String
+  blockingIssueCount    Int                             @default(0)
+  googleWriteCount      Int                             @default(0)
+  errorMessage          String?
+  calendars             GoogleCalendarSyncRunCalendar[]
+  items                 GoogleCalendarImportItem[]
+
+  @@index([startedAt])
+  @@index([status])
+}
+
+model GoogleCalendarSyncRunCalendar {
+  id               String                @id @default(cuid())
+  runId            String
+  googleCalendarId String
+  category         String
+  displayName      String
+  fetched          Int                   @default(0)
+  created          Int                   @default(0)
+  updated          Int                   @default(0)
+  skipped          Int                   @default(0)
+  warnings         Int                   @default(0)
+  errors           Int                   @default(0)
+  pages            Int                   @default(0)
+  nextSyncToken    String?
+  run              GoogleCalendarSyncRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, googleCalendarId])
+  @@index([googleCalendarId])
+}
+
+model GoogleCalendarImportItem {
+  id                 String                @id @default(cuid())
+  runId              String
+  googleCalendarId   String
+  googleEventId      String
+  action             String
+  severity           String
+  payloadJson        String
+  payloadHash        String
+  duplicateCandidate Boolean               @default(false)
+  run                GoogleCalendarSyncRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, googleCalendarId, googleEventId])
+  @@index([googleCalendarId, googleEventId])
 }
 
 model OrganizerTimeBlock {

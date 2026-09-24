@@ -284,3 +284,8 @@ automation:
 - 要約キャッシュの再利用
 - 既読/お気に入り管理
 - 週次ダイジェスト生成
+
+## Organizer / Google Calendar
+
+- Organizer: [`docs/organizer-system.md`](docs/organizer-system.md)
+- Google Calendar読み取り専用Import: [`docs/google-calendar-import.md`](docs/google-calendar-import.md)
