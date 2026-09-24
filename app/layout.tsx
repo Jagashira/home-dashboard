@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./organizer.css";
 
 export const metadata = {
   title: "Home Dashboard",

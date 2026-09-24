@@ -187,3 +187,92 @@ model JobUsefulLink {
 
   @@index([companyId, createdAt])
 }
+
+model OrganizerTask {
+  id               String               @id @default(cuid())
+  title            String
+  description      String?
+  category         String
+  status           String               @default("inbox")
+  importance       Int                  @default(2)
+  estimatedMinutes Int?
+  targetDate       String?
+  dueDate          String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  completedAt      DateTime?
+  timeBlocks       OrganizerTimeBlock[]
+
+  @@index([status])
+  @@index([targetDate])
+  @@index([dueDate])
+  @@index([category, status])
+}
+
+model OrganizerEvent {
+  id                    String   @id @default(cuid())
+  title                 String
+  description           String?
+  category              String
+  startAt               DateTime
+  endAt                 DateTime
+  allDay                 Boolean  @default(false)
+  location               String?
+  shareWithPartner       Boolean  @default(false)
+  googleCalendarEventId  String?  @unique
+  timetreeEventId        String?  @unique
+  timetreeSyncStatus     String   @default("not_requested")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([startAt])
+  @@index([endAt])
+  @@index([startAt, endAt])
+  @@index([shareWithPartner, timetreeSyncStatus])
+}
+
+model OrganizerTimeBlock {
+  id            String        @id @default(cuid())
+  taskId        String
+  title         String
+  startAt       DateTime
+  endAt         DateTime
+  status        String        @default("planned")
+  actualStartAt DateTime?
+  actualEndAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  task          OrganizerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([startAt])
+  @@index([endAt])
+  @@index([taskId, startAt])
+}
+
+model OrganizerRoutine {
+  id               String                       @id @default(cuid())
+  title            String
+  category         String
+  estimatedMinutes Int
+  daysOfWeek       String
+  active           Boolean                      @default(true)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  completions      OrganizerRoutineCompletion[]
+
+  @@index([active])
+  @@index([category, active])
+}
+
+model OrganizerRoutineCompletion {
+  id          String           @id @default(cuid())
+  routineId   String
+  date        String
+  completedAt DateTime         @default(now())
+  routine     OrganizerRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, date])
+  @@index([date])
+  @@index([routineId, date])
+}

@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { PlannerWorkspace } from "./planner-workspace";
 
 export const dynamic = "force-dynamic";
 
 export default function PlannerPage() {
-  redirect("/tasks");
+  return <PlannerWorkspace />;
 }
