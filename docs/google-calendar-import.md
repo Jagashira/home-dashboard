@@ -57,6 +57,22 @@ docker compose exec home-dashboard ./node_modules/.bin/prisma migrate status
 
 ## CLI（開発checkout）
 
+既存tokenが`invalid_grant`の場合は、次のコマンドでread-only scopeだけを要求する認証URLを生成できます。Googleの通常の同意画面、2FA、CAPTCHAは人間がそのまま完了します。
+
+```bash
+pnpm google-calendar:import auth-url
+```
+
+認証後、ブラウザが移動したURL全体を15分以内に渡します。`WRITE_ENV`の明示指定がある場合だけ、取得したrefresh tokenを`.env`へ権限`0600`で保存します。token自体は標準出力へ表示しません。
+
+```bash
+pnpm google-calendar:import oauth-exchange \
+  --redirect-url '<認証後のURL>' \
+  --confirm WRITE_ENV
+```
+
+一時的なPKCE verifierとstate hashはGit対象外の`data/google-calendar/oauth-session.json`へ権限`0600`で保存し、成功後に削除します。
+
 ```bash
 pnpm google-calendar:import discovery
 pnpm google-calendar:import preview

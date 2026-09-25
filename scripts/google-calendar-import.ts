@@ -7,6 +7,10 @@ import {
   listGoogleImportRuns
 } from "../lib/google-calendar/import-service";
 import { createGoogleCalendarReadClient } from "../lib/google-calendar/read-client";
+import {
+  createReadOnlyAuthorizationUrl,
+  exchangeReadOnlyAuthorizationRedirect
+} from "../lib/google-calendar/oauth";
 
 function argument(name: string) {
   const index = process.argv.indexOf(name);
@@ -15,6 +19,19 @@ function argument(name: string) {
 
 async function main() {
   const command = process.argv[2];
+  if (command === "auth-url") {
+    console.log("次のURLをブラウザで開き、通常のGoogle認証を完了してください。CAPTCHAや2FAは回避しません。\n");
+    console.log(await createReadOnlyAuthorizationUrl());
+    console.log("\nリダイレクト後のURLを oauth-exchange --redirect-url に渡してください。有効期限は15分です。");
+    return;
+  }
+  if (command === "oauth-exchange") {
+    if (argument("--confirm") !== "WRITE_ENV") throw new Error("oauth-exchangeには --confirm WRITE_ENV が必要です。");
+    const redirectUrl = argument("--redirect-url");
+    if (!redirectUrl) throw new Error("oauth-exchangeには --redirect-url が必要です。");
+    console.log(JSON.stringify(await exchangeReadOnlyAuthorizationRedirect(redirectUrl), null, 2));
+    return;
+  }
   if (command === "discovery" || command === "calendars") {
     const result = await discoverGoogleCalendars(createGoogleCalendarReadClient());
     console.log(JSON.stringify(result, null, 2));
@@ -43,7 +60,7 @@ async function main() {
     console.log(JSON.stringify(await listGoogleImportRuns(), null, 2));
     return;
   }
-  throw new Error("Usage: google-calendar:import <discovery|preview|status|runs|apply --run ID --token TOKEN --confirm IMPORT>");
+  throw new Error("Usage: google-calendar:import <auth-url|oauth-exchange|discovery|preview|status|runs|apply>");
 }
 
 main()

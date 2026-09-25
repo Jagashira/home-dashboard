@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after, before } from "node:test";
@@ -12,6 +12,11 @@ import {
 } from "../lib/google-calendar/import-service";
 import { requireGoogleCalendarAdmin } from "../lib/google-calendar/admin-auth";
 import { NextRequest } from "next/server";
+import {
+  GOOGLE_CALENDAR_READONLY_SCOPE,
+  oauthSessionPath,
+  writeRefreshTokenToEnv
+} from "../lib/google-calendar/oauth";
 import type {
   EventPage,
   GoogleCalendarDescriptor,
@@ -265,5 +270,21 @@ test("Google Calendar management API authentication fails closed", () => {
   } finally {
     if (original === undefined) delete process.env.GOOGLE_CALENDAR_ADMIN_SECRET;
     else process.env.GOOGLE_CALENDAR_ADMIN_SECRET = original;
+  }
+});
+
+test("OAuth helper requests read-only scope and updates .env without exposing the token", () => {
+  assert.equal(GOOGLE_CALENDAR_READONLY_SCOPE, "https://www.googleapis.com/auth/calendar.readonly");
+  const oauthDirectory = mkdtempSync(path.join(tmpdir(), "google-oauth-test-"));
+  try {
+    const envPath = path.join(oauthDirectory, ".env");
+    writeFileSync(envPath, "GOOGLE_CLIENT_ID=test\nGOOGLE_REFRESH_TOKEN=old-token\nOTHER=value\n");
+    writeRefreshTokenToEnv("new-token", envPath);
+    const updated = readFileSync(envPath, "utf8");
+    assert.match(updated, /^GOOGLE_REFRESH_TOKEN=new-token$/m);
+    assert.equal(updated.includes("old-token"), false);
+    assert.equal(oauthSessionPath(oauthDirectory), path.join(oauthDirectory, "data", "google-calendar", "oauth-session.json"));
+  } finally {
+    rmSync(oauthDirectory, { recursive: true, force: true });
   }
 });
