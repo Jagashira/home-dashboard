@@ -85,4 +85,3 @@ test("overlapping planner items receive separate columns", () => {
   assert.equal(layout.find((item) => item.id === "b")?.column, 1);
   assert.equal(layout.find((item) => item.id === "c")?.columnCount, 1);
 });
-

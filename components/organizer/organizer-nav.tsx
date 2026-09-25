@@ -12,4 +12,3 @@ export function OrganizerNav({ current }: { current: "tasks" | "planner" }) {
     </nav>
   );
 }
-

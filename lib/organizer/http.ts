@@ -19,4 +19,3 @@ export function organizerErrorResponse(error: unknown) {
     { status: 500 }
   );
 }
-

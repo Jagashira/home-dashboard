@@ -59,4 +59,3 @@ export type PlannerDayPayload = {
   timeBlocks: OrganizerTimeBlockItem[];
   unscheduledTasks: OrganizerTaskItem[];
 };
-

@@ -31,4 +31,3 @@ export const TIME_BLOCK_STATUS_LABELS: Record<OrganizerTimeBlockStatus, string> 
 };
 
 export const TOKYO_TIME_ZONE = "Asia/Tokyo";
-

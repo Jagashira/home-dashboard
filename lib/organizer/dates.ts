@@ -70,4 +70,3 @@ export function dateOnlyWeekEnd(value: string): string {
 export function minutesBetween(start: Date | string, end: Date | string): number {
   return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000);
 }
-

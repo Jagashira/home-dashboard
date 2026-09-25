@@ -8,4 +8,3 @@ export async function organizerFetch<T>(url: string, init?: RequestInit): Promis
   if (!response.ok || !payload.ok) throw new Error(payload.error ?? "処理に失敗しました。");
   return payload as T;
 }
-

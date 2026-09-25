@@ -32,4 +32,3 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     return organizerErrorResponse(error);
   }
 }
-

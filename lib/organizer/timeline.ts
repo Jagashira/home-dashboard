@@ -30,4 +30,3 @@ export function layoutTimelineItems(items: TimelineInput[]): TimelineLayout[] {
   flush();
   return result;
 }
-
