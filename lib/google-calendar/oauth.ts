@@ -40,6 +40,13 @@ export function oauthSessionPath(baseDirectory = process.cwd()) {
   return path.join(baseDirectory, "data", "google-calendar", "oauth-session.json");
 }
 
+export function sameOAuthRedirectDestination(expected: string, received: string) {
+  const left = new URL(expected);
+  const right = new URL(received);
+  const normalizePath = (value: string) => value.replace(/\/+$/, "") || "/";
+  return left.origin === right.origin && normalizePath(left.pathname) === normalizePath(right.pathname);
+}
+
 export async function createReadOnlyAuthorizationUrl(baseDirectory = process.cwd()) {
   const client = oauthClient();
   const { codeVerifier, codeChallenge } = await client.generateCodeVerifierAsync();
@@ -78,11 +85,10 @@ export async function exchangeReadOnlyAuthorizationRedirect(
   redirectUrl: string,
   options: { baseDirectory?: string; envPath?: string } = {}
 ) {
-  const expectedRedirect = new URL(required("GOOGLE_REDIRECT_URI"));
-  const received = new URL(redirectUrl);
-  if (received.origin !== expectedRedirect.origin || received.pathname !== expectedRedirect.pathname) {
+  if (!sameOAuthRedirectDestination(required("GOOGLE_REDIRECT_URI"), redirectUrl)) {
     throw new Error("Redirect URL does not match GOOGLE_REDIRECT_URI");
   }
+  const received = new URL(redirectUrl);
   const oauthError = received.searchParams.get("error");
   if (oauthError) throw new Error(`Google authorization failed: ${oauthError}`);
   const code = received.searchParams.get("code");

@@ -15,6 +15,7 @@ import { NextRequest } from "next/server";
 import {
   GOOGLE_CALENDAR_READONLY_SCOPE,
   oauthSessionPath,
+  sameOAuthRedirectDestination,
   writeRefreshTokenToEnv
 } from "../lib/google-calendar/oauth";
 import type {
@@ -275,6 +276,14 @@ test("Google Calendar management API authentication fails closed", () => {
 
 test("OAuth helper requests read-only scope and updates .env without exposing the token", () => {
   assert.equal(GOOGLE_CALENDAR_READONLY_SCOPE, "https://www.googleapis.com/auth/calendar.readonly");
+  assert.equal(
+    sameOAuthRedirectDestination("https://developers.google.com/oauthplayground", "https://developers.google.com/oauthplayground/?code=one-time"),
+    true
+  );
+  assert.equal(
+    sameOAuthRedirectDestination("https://developers.google.com/oauthplayground", "https://example.com/oauthplayground/?code=one-time"),
+    false
+  );
   const oauthDirectory = mkdtempSync(path.join(tmpdir(), "google-oauth-test-"));
   try {
     const envPath = path.join(oauthDirectory, ".env");
