@@ -82,6 +82,9 @@ class FakeReadClient implements GoogleCalendarReadClient {
     this.calls.push({ calendarId, pageToken });
     return this.pages[`${calendarId}:${pageToken ?? "first"}`] ?? { items: [], nextSyncToken: `sync-${calendarId}` };
   }
+  async listIncrementalEventsPage(calendarId: string, _syncToken: string, pageToken?: string) {
+    return this.listEventsPage(calendarId, pageToken);
+  }
 }
 
 function completeClient() {
@@ -354,6 +357,8 @@ test("implementation contains no Google Calendar write calls", () => {
   const source = [
     "lib/google-calendar/read-client.ts",
     "lib/google-calendar/import-service.ts",
+    "lib/google-calendar/sync-service.ts",
+    "scripts/google-calendar-sync.ts",
     "lib/googleCalendar.ts"
   ].map((file) => readFileSync(path.resolve(process.cwd(), file), "utf8")).join("\n");
   for (const forbidden of ["events.insert", "events.update", "events.patch", "events.delete", "events.move", "calendars.insert", "acl.insert"]) {

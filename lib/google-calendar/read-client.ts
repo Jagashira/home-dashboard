@@ -1,10 +1,17 @@
 import { google } from "googleapis";
+import { GoogleSyncTokenExpiredError } from "./errors";
 import type { GoogleCalendarReadClient } from "./types";
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is not set`);
   return value;
+}
+
+function isGone(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; status?: unknown; response?: { status?: unknown } };
+  return Number(candidate.code ?? candidate.status ?? candidate.response?.status) === 410;
 }
 
 export function createGoogleCalendarReadClient(): GoogleCalendarReadClient {
@@ -54,6 +61,26 @@ export function createGoogleCalendarReadClient(): GoogleCalendarReadClient {
         nextPageToken: response.data.nextPageToken ?? undefined,
         nextSyncToken: response.data.nextSyncToken ?? undefined
       };
+    },
+    async listIncrementalEventsPage(calendarId, syncToken, pageToken) {
+      try {
+        const response = await calendar.events.list({
+          calendarId,
+          maxResults: 2500,
+          pageToken,
+          showDeleted: true,
+          singleEvents: false,
+          syncToken
+        });
+        return {
+          items: response.data.items ?? [],
+          nextPageToken: response.data.nextPageToken ?? undefined,
+          nextSyncToken: response.data.nextSyncToken ?? undefined
+        };
+      } catch (error) {
+        if (isGone(error)) throw new GoogleSyncTokenExpiredError();
+        throw error;
+      }
     }
   });
 }

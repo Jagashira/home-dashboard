@@ -47,6 +47,7 @@ export interface GoogleCalendarReadClient {
   getGrantedScopes(): Promise<string[]>;
   listCalendarsPage(pageToken?: string): Promise<CalendarPage>;
   listEventsPage(calendarId: string, pageToken?: string): Promise<EventPage>;
+  listIncrementalEventsPage(calendarId: string, syncToken: string, pageToken?: string): Promise<EventPage>;
 }
 
 export type CalendarMappingSpec = {

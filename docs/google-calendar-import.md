@@ -16,7 +16,7 @@
 ## 安全設計
 
 - OAuth tokenには`https://www.googleapis.com/auth/calendar.readonly`など、末尾が`.readonly`のscopeだけを付与してください。書き込み可能scopeを検出したPreviewは停止します。
-- Googleクライアントの公開interfaceは`getGrantedScopes`、`listCalendarsPage`、`listEventsPage`だけです。
+- Googleクライアントの公開interfaceは読み取り専用の`getGrantedScopes`、`listCalendarsPage`、`listEventsPage`、`listIncrementalEventsPage`だけです。
 - Previewは全ページを読み、Import候補・検証結果・最終ページの`nextSyncToken`をPreview runへ保存します。`OrganizerEvent`と正式cursorは変更しません。
 - Applyは、成功したPreviewのrun ID、有効期限30分の確認トークン、明示文字列`IMPORT`をすべて要求します。
 - Eventの冪等キーは`(googleCalendarId, googleCalendarEventId)`です。タイトルと日時では統合しません。
@@ -32,6 +32,28 @@
 終日予定は`startDate`と排他的な`endDateExclusive`を`YYYY-MM-DD`のまま保持します。既存Plannerとの互換表示用にAsia/Tokyoの0時から導出した`startAt/endAt`も保持します。時刻予定はRFC3339のinstantをUTCで保存し、元timezoneを別に保持します。
 
 `singleEvents=false`で取得するため、繰り返しmaster、例外、cancelled instanceを区別できます。cancelled resourceはPreview snapshotに保持しますが、初回Importでは表示Eventを作りません。Planner上での繰り返し展開はこのフェーズでは行いません。
+
+## 増分同期
+
+初回Import完了後は、保存済みのカレンダー別`syncToken`でGoogle側の変更を読み取れます。Google APIの全ページを取得して最終ページの`nextSyncToken`を確認した後にだけDB transactionを開始し、カレンダー単位でEvent反映・削除・cursor更新・run記録をcommitします。
+
+- 新規Google Eventは`shareWithPartner=false`、`timetreeSyncStatus=not_requested`で作成します。
+- 更新はGoogle由来フィールドだけを変更し、`shareWithPartner`とTimeTree metadataを維持します。
+- `status=cancelled`は同じ`googleCalendarId + googleCalendarEventId`のGoogle由来Eventだけを削除します。存在しないIDはskipします。
+- cancelled recurring exceptionも同じIDの保存済み例外だけを削除し、recurring masterには触れません。
+- syncTokenが410 Goneで失効した場合は、そのカレンダーだけをfull fetchして再照合します。ローカルEventと他カレンダーのEventは削除対象になりません。
+- recovery成功時だけ新しいtokenと`lastFullSyncAt`を保存します。
+- API取得中はDB transactionを開きません。
+
+状態確認と手動同期は次のCLIを使います。自動実行は有効化していません。
+
+```bash
+pnpm google-calendar:sync status
+pnpm google-calendar:sync run --dry-run
+pnpm google-calendar:sync run
+```
+
+`--dry-run`はGoogleから差分を読み、予定されるcreate/update/delete件数を表示しますが、Event、cursor、run logを変更しません。出力にはOAuth credentialとsync tokenを含めません。
 
 ## 環境変数
 
@@ -130,7 +152,7 @@ Apply bodyは次の3項目が必須です。
 
 ## このフェーズで行わないこと
 
-- Google Calendarへの送信、差分同期、削除反映、push通知
+- Google Calendarへの送信、push通知、cronによる自動実行
 - Organizer Event CRUDからのGoogle API呼び出し
 - TimeTree連携
 - Plannerでの繰り返し展開
