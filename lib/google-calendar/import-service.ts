@@ -434,6 +434,16 @@ export async function applyGoogleImportPreview(
       let updated = 0;
       let skipped = 0;
       const syncedAt = new Date();
+      const existingRemoteEvents = await transaction.organizerEvent.findMany({
+        where: {
+          googleCalendarId: { in: preview.calendars.map((calendar) => calendar.googleCalendarId) },
+          googleCalendarEventId: { not: null }
+        },
+        select: { googleCalendarId: true, googleCalendarEventId: true }
+      });
+      const existingRemoteEventKeys = new Set(
+        existingRemoteEvents.map((event) => `${event.googleCalendarId}\u0000${event.googleCalendarEventId}`)
+      );
       for (const item of preview.items) {
         if (item.action === "SKIP_CANCELLED" || item.action === "BLOCKED") {
           skipped += 1;
@@ -463,15 +473,6 @@ export async function applyGoogleImportPreview(
           googleStatus: event.googleStatus,
           recurrenceJson: JSON.stringify(event.recurrence)
         };
-        const existing = await transaction.organizerEvent.findUnique({
-          where: {
-            googleCalendarId_googleCalendarEventId: {
-              googleCalendarId: event.googleCalendarId,
-              googleCalendarEventId: event.googleCalendarEventId
-            }
-          },
-          select: { id: true }
-        });
         await transaction.organizerEvent.upsert({
           where: {
             googleCalendarId_googleCalendarEventId: {
@@ -489,7 +490,7 @@ export async function applyGoogleImportPreview(
           },
           update: { ...common, googleSyncStatus: "updated" }
         });
-        if (existing) updated += 1;
+        if (existingRemoteEventKeys.has(`${event.googleCalendarId}\u0000${event.googleCalendarEventId}`)) updated += 1;
         else created += 1;
       }
 
@@ -533,7 +534,7 @@ export async function applyGoogleImportPreview(
         data: { status: "applied", finishedAt: syncedAt }
       });
       return { created, updated, skipped, googleWriteCount: 0 as const };
-    });
+    }, { maxWait: 10_000, timeout: 60_000 });
     return { applyRunId: applyRun.id, previewRunId: preview.id, ...counts };
   } catch (error) {
     await db.googleCalendarSyncRun.update({

@@ -117,6 +117,69 @@ function completeClient() {
   });
 }
 
+function withDelayedInteractiveTransaction(
+  db: PrismaClient,
+  delayMs: number,
+  captureOptions: (options: { maxWait?: number; timeout?: number } | undefined) => void
+) {
+  return new Proxy(db, {
+    get(target, property) {
+      if (property === "$transaction") {
+        return (
+          operation: (transaction: Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0]) => Promise<unknown>,
+          options?: { maxWait?: number; timeout?: number }
+        ) => {
+          captureOptions(options);
+          return target.$transaction(async (transaction) => {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            return operation(transaction);
+          }, options);
+        };
+      }
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+  }) as PrismaClient;
+}
+
+function withFailingMappingUpdateTransaction(db: PrismaClient, failOnUpdate: number) {
+  return new Proxy(db, {
+    get(target, property) {
+      if (property === "$transaction") {
+        return (
+          operation: (transaction: Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0]) => Promise<unknown>,
+          options?: { maxWait?: number; timeout?: number }
+        ) => target.$transaction(async (transaction) => {
+          let mappingUpdates = 0;
+          const mappingDelegate = new Proxy(transaction.googleCalendarMapping, {
+            get(delegate, delegateProperty) {
+              if (delegateProperty === "update") {
+                return (args: Parameters<typeof delegate.update>[0]) => {
+                  mappingUpdates += 1;
+                  if (mappingUpdates === failOnUpdate) throw new Error("simulated mapping update failure");
+                  return delegate.update(args);
+                };
+              }
+              const value = Reflect.get(delegate, delegateProperty, delegate);
+              return typeof value === "function" ? value.bind(delegate) : value;
+            }
+          });
+          const transactionWithFailure = new Proxy(transaction, {
+            get(transactionTarget, transactionProperty) {
+              if (transactionProperty === "googleCalendarMapping") return mappingDelegate;
+              const value = Reflect.get(transactionTarget, transactionProperty, transactionTarget);
+              return typeof value === "function" ? value.bind(transactionTarget) : value;
+            }
+          });
+          return operation(transactionWithFailure);
+        }, options);
+      }
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+  }) as PrismaClient;
+}
+
 test("discovery maps current names and never guesses renamed calendars", async () => {
   const discovery = await discoverGoogleCalendars(new FakeReadClient());
   assert.deepEqual(discovery.resolved.map((item) => [item.displayName, item.category]), [
@@ -180,7 +243,15 @@ test("preview paginates without importing, then approved apply is idempotent and
     { calendarId: "cal-university", pageToken: "page-2" }
   ]);
 
-  const applied = await applyGoogleImportPreview({ runId: preview.runId, confirmationToken: preview.confirmationToken! }, client);
+  let transactionOptions: { maxWait?: number; timeout?: number } | undefined;
+  const delayedClient = withDelayedInteractiveTransaction(client, 5_100, (options) => {
+    transactionOptions = options;
+  });
+  const applied = await applyGoogleImportPreview(
+    { runId: preview.runId, confirmationToken: preview.confirmationToken! },
+    delayedClient
+  );
+  assert.deepEqual(transactionOptions, { maxWait: 10_000, timeout: 60_000 });
   assert.deepEqual({ created: applied.created, updated: applied.updated, skipped: applied.skipped, writes: applied.googleWriteCount }, { created: 6, updated: 0, skipped: 1, writes: 0 });
   assert.equal(await client.googleCalendarSyncCursor.count(), 4);
   assert.equal(await client.organizerTask.count(), 1);
@@ -220,6 +291,41 @@ test("preview paginates without importing, then approved apply is idempotent and
   assert.equal(await client.organizerEvent.count(), before + 6);
   assert.equal((await client.organizerEvent.findUnique({ where: { id: work!.id } }))?.shareWithPartner, true);
   await assert.rejects(() => applyGoogleImportPreview({ runId: preview.runId, confirmationToken: preview.confirmationToken! }, client), /適用可能/);
+
+  const rollbackPreview = await createGoogleImportPreview(completeClient(), client);
+  const rollbackMarker = new Date("2020-01-01T00:00:00.000Z");
+  await client.googleCalendarSyncCursor.updateMany({
+    data: { syncToken: "rollback-sentinel", lastFullSyncAt: rollbackMarker }
+  });
+  await client.googleCalendarMapping.updateMany({
+    data: { importCompletedAt: rollbackMarker, outboundEnabledAt: null }
+  });
+  const snapshot = async () => JSON.stringify({
+    events: await client.organizerEvent.findMany({
+      orderBy: { id: "asc" },
+      select: { id: true, title: true, googleSyncStatus: true, lastSyncedAt: true, lastSyncedHash: true, updatedAt: true }
+    }),
+    cursors: await client.googleCalendarSyncCursor.findMany({
+      orderBy: { googleCalendarId: "asc" },
+      select: { googleCalendarId: true, syncToken: true, lastFullSyncAt: true, updatedAt: true }
+    }),
+    mappings: await client.googleCalendarMapping.findMany({
+      orderBy: { googleCalendarId: "asc" },
+      select: { googleCalendarId: true, importCompletedAt: true, outboundEnabledAt: true, updatedAt: true }
+    })
+  });
+  const beforeFailedApply = await snapshot();
+  await assert.rejects(
+    () => applyGoogleImportPreview(
+      { runId: rollbackPreview.runId, confirmationToken: rollbackPreview.confirmationToken! },
+      withFailingMappingUpdateTransaction(client, 2)
+    ),
+    /simulated mapping update failure/
+  );
+  assert.equal(await snapshot(), beforeFailedApply);
+  const rollbackRun = await client.googleCalendarSyncRun.findUnique({ where: { id: rollbackPreview.runId } });
+  assert.equal(rollbackRun?.status, "preview_ready");
+  assert.ok(rollbackRun?.confirmationTokenHash);
 });
 
 test("writable OAuth scope and incomplete final pages block preview", async () => {
