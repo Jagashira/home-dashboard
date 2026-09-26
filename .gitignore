@@ -2,6 +2,7 @@ node_modules
 .next
 .env
 .env.local
+.env.*.tmp
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

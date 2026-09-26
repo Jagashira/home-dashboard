@@ -44,16 +44,23 @@ function remoteEvent(event: calendar_v3.Schema$Event): GoogleOutboundRemoteEvent
   };
 }
 
-export function createGoogleCalendarOutboundClient(): GoogleCalendarOutboundClient {
+export function createGoogleCalendarOutboundClient(options: { allowReadOnlyFallbackForDryRun?: boolean } = {}): GoogleCalendarOutboundClient {
+  const outboundRefreshToken = process.env.GOOGLE_OUTBOUND_REFRESH_TOKEN?.trim() || undefined;
+  const refreshToken = outboundRefreshToken
+    ?? (options.allowReadOnlyFallbackForDryRun ? required("GOOGLE_REFRESH_TOKEN") : required("GOOGLE_OUTBOUND_REFRESH_TOKEN"));
   const auth = new google.auth.OAuth2(
     required("GOOGLE_CLIENT_ID"),
     required("GOOGLE_CLIENT_SECRET"),
     required("GOOGLE_REDIRECT_URI")
   );
-  auth.setCredentials({
-    refresh_token: process.env.GOOGLE_OUTBOUND_REFRESH_TOKEN?.trim() || required("GOOGLE_REFRESH_TOKEN")
-  });
+  auth.setCredentials({ refresh_token: refreshToken });
   const calendar = google.calendar({ version: "v3", auth });
+
+  function requireDedicatedOutboundToken() {
+    if (!outboundRefreshToken) {
+      throw new Error("GOOGLE_OUTBOUND_REFRESH_TOKEN is required for Google Calendar writes");
+    }
+  }
 
   return Object.freeze({
     async getGrantedScopes() {
@@ -71,6 +78,7 @@ export function createGoogleCalendarOutboundClient(): GoogleCalendarOutboundClie
       }
     },
     async createEvent(calendarId, payload) {
+      requireDedicatedOutboundToken();
       try {
         const response = await calendar.events.insert({
           calendarId,
@@ -83,6 +91,7 @@ export function createGoogleCalendarOutboundClient(): GoogleCalendarOutboundClie
       }
     },
     async updateEvent(calendarId, eventId, payload, expectedEtag) {
+      requireDedicatedOutboundToken();
       try {
         const response = await calendar.events.patch(
           { calendarId, eventId, requestBody: payload, sendUpdates: "none" },
@@ -94,6 +103,7 @@ export function createGoogleCalendarOutboundClient(): GoogleCalendarOutboundClie
       }
     },
     async deleteEvent(calendarId, eventId, expectedEtag) {
+      requireDedicatedOutboundToken();
       try {
         await calendar.events.delete(
           { calendarId, eventId, sendUpdates: "none" },

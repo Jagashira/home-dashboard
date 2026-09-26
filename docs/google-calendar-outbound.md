@@ -58,13 +58,40 @@ Local-only Eventとinbound-owned Eventの削除ではtombstoneを作らず、Goo
 
 ## OAuth
 
-現在の`https://www.googleapis.com/auth/calendar.readonly`は変更しません。将来、対象4カレンダーが認証ユーザー所有であることを確認できる場合、最小候補は次です。
+Inboundの`https://www.googleapis.com/auth/calendar.readonly`、`GOOGLE_REFRESH_TOKEN`、既存OAuth CLIは変更しません。Outboundは別のPKCE sessionと`GOOGLE_OUTBOUND_REFRESH_TOKEN`を使い、次のscopeだけを要求します。
 
 ```text
 https://www.googleapis.com/auth/calendar.events.owned
 ```
 
-所有外の書き込み可能な共有カレンダーも対象にする場合は`calendar.events`が必要です。広い`calendar` scopeは不要です。inboundのread-only tokenと分離するため、outbound用refresh tokenは`GOOGLE_OUTBOUND_REFRESH_TOKEN`として扱えます。今回、再認証やtoken取得は行っていません。
+対象4カレンダーが認証ユーザー所有であることが前提です。所有外の共有カレンダーはこのscopeでは書き込めません。広い`calendar` scopeは要求しません。
+
+認証URL生成とcode交換は既存CLIと同じ形式です。認証URL生成時にPKCE verifierとstate hashをGit対象外の`data/google-calendar/outbound-oauth-session.json`へ保存します。Inboundの`oauth-session.json`とは衝突しません。sessionは15分で失効し、stateが一致しない交換を拒否します。交換結果はtokenやauthorization codeを出力せず、`.env`の`GOOGLE_OUTBOUND_REFRESH_TOKEN`だけを追加・更新します。
+
+```bash
+pnpm google-calendar:outbound auth-url
+
+pnpm google-calendar:outbound oauth-exchange \
+  --redirect-url '<認証後のURL>' \
+  --confirm WRITE_ENV
+```
+
+今回の実装・テストではこれらの認証コマンドを実行しておらず、OAuth再認証も行っていません。
+
+実書き込み用clientは`GOOGLE_OUTBOUND_REFRESH_TOKEN`を必須とします。`GOOGLE_REFRESH_TOKEN`への暗黙fallbackは、read-only tokenをwrite経路へ持ち込んで認証境界を曖昧にするため廃止しました。既存のoutbound dry-runはGoogle側のETag確認に読み取りが必要なので、CLIが`--dry-run`を明示した場合だけ従来のread-only tokenを利用できます。そのclientでCREATE/UPDATE/DELETEを呼んでも、Google APIへ到達する前に拒否されます。
+
+`.env`には将来、人間が上記OAuthフローを実施した後に次の値が追加されます。値はGitへ追加しません。
+
+```env
+GOOGLE_OUTBOUND_REFRESH_TOKEN=
+```
+
+token取得だけでは本番書き込みは有効になりません。残る有効化手順は、対象カレンダーの所有権とdry-runを確認したうえで、運用者が別途次の2つを明示することです。
+
+1. 対象`GoogleCalendarMapping.outboundEnabledAt`を設定する安全な管理手順を用意する
+2. `GOOGLE_CALENDAR_OUTBOUND_WRITES_ENABLED=ENABLED_AFTER_REAUTH`を設定する
+
+その後も実行ごとに`--confirm WRITE_GOOGLE_CALENDAR`が必要です。この変更では`outboundEnabledAt`と環境変数を変更していません。
 
 ## 対象外
 
@@ -73,3 +100,4 @@ https://www.googleapis.com/auth/calendar.events.owned
 - systemd timer、cron、自動実行
 - Calendar、ACL、CalendarListへの書き込み
 - OAuth再認証
+- Google OAuth認証コマンドの実行
