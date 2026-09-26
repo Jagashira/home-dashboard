@@ -289,3 +289,4 @@ automation:
 
 - Organizer: [`docs/organizer-system.md`](docs/organizer-system.md)
 - Google Calendar読み取り専用Import: [`docs/google-calendar-import.md`](docs/google-calendar-import.md)
+- Google Calendar outbound設計・dry-run: [`docs/google-calendar-outbound.md`](docs/google-calendar-outbound.md)

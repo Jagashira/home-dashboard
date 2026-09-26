@@ -1,6 +1,6 @@
 # Google Calendar → Organizer 初回Import
 
-この機能はGoogle Calendarを読み取り専用の移行元として扱います。Google Calendarへの作成・更新・削除・移動、Calendar/ACL変更、Organizer CRUDからのGoogle呼び出しは実装していません。
+初回Importと増分同期はGoogle Calendarを読み取り専用の入力元として扱います。将来用のoutbound実装は[`google-calendar-outbound.md`](google-calendar-outbound.md)に分離され、現在はDB・環境・明示確認・OAuth scopeのガードにより書き込み不能です。
 
 ## 対象と対応付け
 

@@ -235,6 +235,8 @@ model OrganizerEvent {
   recurrenceJson         String?
   startDate              String?
   endDateExclusive       String?
+  googleOutboundManaged  Boolean   @default(false)
+  googleOutboundBaseHash String?
   timetreeEventId        String?   @unique
   timetreeSyncStatus     String    @default("not_requested")
   createdAt              DateTime  @default(now())
@@ -246,6 +248,24 @@ model OrganizerEvent {
   @@index([startAt, endAt])
   @@index([shareWithPartner, timetreeSyncStatus])
   @@index([googleCalendarId, googleSyncStatus])
+  @@index([googleOutboundManaged, googleCalendarId])
+}
+
+model GoogleCalendarOutboundDeletion {
+  id                    String    @id @default(cuid())
+  organizerEventId      String    @unique
+  googleCalendarId      String
+  googleCalendarEventId String
+  googleEtag            String?
+  title                 String
+  category              String
+  status                String    @default("pending")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  completedAt           DateTime?
+
+  @@unique([googleCalendarId, googleCalendarEventId])
+  @@index([status, category])
 }
 
 model GoogleCalendarMapping {

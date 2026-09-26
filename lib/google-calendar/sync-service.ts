@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ORGANIZER_CATEGORIES, type OrganizerCategory } from "@/lib/organizer/constants";
 import { GoogleSyncTokenExpiredError } from "./errors";
 import { normalizeGoogleEvent, payloadHash } from "./normalize";
+import { localOutboundHash, normalizedGoogleLocalHash } from "./outbound-payload";
 import type { GoogleCalendarEvent, GoogleCalendarReadClient, NormalizedGoogleEvent } from "./types";
 
 export type GoogleCalendarSyncDb = PrismaClient;
@@ -179,8 +180,7 @@ async function applyCalendarChanges(
 ): Promise<GoogleCalendarSyncCalendarResult> {
   const normalized = normalizeChanges(mapping, fetched.events);
   const existing = await db.organizerEvent.findMany({
-    where: { googleCalendarId: mapping.googleCalendarId, googleCalendarEventId: { not: null } },
-    select: { googleCalendarEventId: true, lastSyncedHash: true }
+    where: { googleCalendarId: mapping.googleCalendarId, googleCalendarEventId: { not: null } }
   });
   const existingById = new Map(existing.map((event) => [event.googleCalendarEventId!, event]));
   const activeIds = new Set(normalized.active.map(({ event }) => event.googleCalendarEventId));
@@ -192,6 +192,13 @@ async function applyCalendarChanges(
 
   for (const item of normalized.active) {
     const current = existingById.get(item.event.googleCalendarEventId);
+    if (
+      current?.googleOutboundManaged
+      && (!current.googleOutboundBaseHash || localOutboundHash(current) !== current.googleOutboundBaseHash)
+    ) {
+      skipped += 1;
+      continue;
+    }
     if (current?.lastSyncedHash === item.hash) {
       skipped += 1;
       continue;
@@ -215,14 +222,26 @@ async function applyCalendarChanges(
         shareWithPartner: false,
         timetreeSyncStatus: "not_requested"
       },
-      update: { ...common, googleSyncStatus: "updated" }
+      update: {
+        ...common,
+        googleSyncStatus: "updated",
+        ...(current?.googleOutboundManaged
+          ? { googleOutboundBaseHash: normalizedGoogleLocalHash(item.event) }
+          : {})
+      }
     });
   }
 
-  const idsToDelete = fetched.fullSyncRecovery
+  const proposedIdsToDelete = fetched.fullSyncRecovery
     ? existing.map((event) => event.googleCalendarEventId!).filter((id) => !activeIds.has(id))
     : [...normalized.cancelledIds].filter((id) => existingById.has(id));
+  const idsToDelete = proposedIdsToDelete.filter((id) => {
+    const current = existingById.get(id);
+    return !current?.googleOutboundManaged
+      || Boolean(current.googleOutboundBaseHash && localOutboundHash(current) === current.googleOutboundBaseHash);
+  });
   deleted = idsToDelete.length;
+  skipped += proposedIdsToDelete.length - idsToDelete.length;
   skipped += [...normalized.cancelledIds].filter((id) => !existingById.has(id)).length;
 
   if (!dryRun && idsToDelete.length) {

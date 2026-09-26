@@ -135,7 +135,24 @@ export async function updateOrganizerEvent(id: string, input: EventWrite, db: Or
 }
 
 export async function deleteOrganizerEvent(id: string, db: OrganizerDb = prisma) {
-  return db.organizerEvent.delete({ where: { id } });
+  return db.$transaction(async (transaction) => {
+    const event = await transaction.organizerEvent.findUnique({ where: { id } });
+    if (!event) throw new OrganizerValidationError("予定が見つかりません。");
+    if (event.googleOutboundManaged && event.googleCalendarId && event.googleCalendarEventId) {
+      await transaction.googleCalendarOutboundDeletion.create({
+        data: {
+          organizerEventId: event.id,
+          googleCalendarId: event.googleCalendarId,
+          googleCalendarEventId: event.googleCalendarEventId,
+          googleEtag: event.googleEtag,
+          title: event.title,
+          category: event.category,
+          status: "pending"
+        }
+      });
+    }
+    return transaction.organizerEvent.delete({ where: { id } });
+  });
 }
 
 export async function listOrganizerTimeBlocks(

@@ -27,7 +27,8 @@ before(async () => {
   sqlite.pragma("foreign_keys = ON");
   for (const migration of [
     "prisma/migrations/20260924000100_add_organizer_system/migration.sql",
-    "prisma/migrations/20260925000100_add_google_calendar_import/migration.sql"
+    "prisma/migrations/20260925000100_add_google_calendar_import/migration.sql",
+    "prisma/migrations/20260927000100_add_google_calendar_outbound/migration.sql"
   ]) {
     sqlite.exec(readFileSync(path.resolve(process.cwd(), migration), "utf8"));
   }

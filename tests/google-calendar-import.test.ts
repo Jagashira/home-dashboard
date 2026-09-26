@@ -35,7 +35,8 @@ before(async () => {
   sqlite.pragma("foreign_keys = ON");
   for (const migration of [
     "prisma/migrations/20260924000100_add_organizer_system/migration.sql",
-    "prisma/migrations/20260925000100_add_google_calendar_import/migration.sql"
+    "prisma/migrations/20260925000100_add_google_calendar_import/migration.sql",
+    "prisma/migrations/20260927000100_add_google_calendar_outbound/migration.sql"
   ]) {
     sqlite.exec(readFileSync(path.resolve(process.cwd(), migration), "utf8"));
   }
@@ -353,7 +354,7 @@ test("writable OAuth scope and incomplete final pages block preview", async () =
   assert.ok(incomplete.issues.some((issue) => issue.code === "MISSING_FINAL_SYNC_TOKEN"));
 });
 
-test("implementation contains no Google Calendar write calls", () => {
+test("inbound implementation contains no Google Calendar write calls", () => {
   const source = [
     "lib/google-calendar/read-client.ts",
     "lib/google-calendar/import-service.ts",

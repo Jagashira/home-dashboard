@@ -19,7 +19,8 @@
     "news:refresh": "tsx scripts/refresh-news.ts",
     "news:fetch": "curl -X POST http://localhost:3000/api/fetch",
     "google-calendar:import": "tsx --env-file=.env scripts/google-calendar-import.ts",
-    "google-calendar:sync": "tsx --env-file=.env scripts/google-calendar-sync.ts"
+    "google-calendar:sync": "tsx --env-file=.env scripts/google-calendar-sync.ts",
+    "google-calendar:outbound": "tsx --env-file=.env scripts/google-calendar-outbound.ts"
   },
   "engines": {
     "node": ">=20"
