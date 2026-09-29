@@ -20,7 +20,8 @@
     "news:fetch": "curl -X POST http://localhost:3000/api/fetch",
     "google-calendar:import": "tsx --env-file=.env scripts/google-calendar-import.ts",
     "google-calendar:sync": "tsx --env-file=.env scripts/google-calendar-sync.ts",
-    "google-calendar:outbound": "tsx --env-file=.env scripts/google-calendar-outbound.ts"
+    "google-calendar:outbound": "tsx --env-file=.env scripts/google-calendar-outbound.ts",
+    "timetree:outbound": "tsx --env-file=.env scripts/timetree-outbound.ts"
   },
   "engines": {
     "node": ">=20"

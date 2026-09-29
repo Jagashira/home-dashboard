@@ -239,6 +239,10 @@ model OrganizerEvent {
   googleOutboundBaseHash String?
   timetreeEventId        String?   @unique
   timetreeSyncStatus     String    @default("not_requested")
+  timetreeCalendarId     String?
+  timetreeEventUrl       String?
+  timetreeBaseHash       String?
+  timetreeLastSyncedAt   DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -249,6 +253,43 @@ model OrganizerEvent {
   @@index([shareWithPartner, timetreeSyncStatus])
   @@index([googleCalendarId, googleSyncStatus])
   @@index([googleOutboundManaged, googleCalendarId])
+}
+
+model TimeTreeCalendarMapping {
+  id                String    @id @default(cuid())
+  calendarName      String    @unique
+  calendarId        String?   @unique
+  calendarUrl       String?
+  enabled           Boolean   @default(true)
+  outboundEnabledAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model TimeTreeOutboundOperation {
+  id                 String    @id @default(cuid())
+  organizerEventId   String    @unique
+  action             String
+  status             String    @default("pending")
+  idempotencyKey     String    @unique
+  payloadJson        String
+  desiredHash        String?
+  timetreeCalendarId String?
+  timetreeEventId    String?
+  timetreeEventUrl   String?
+  attemptCount       Int       @default(0)
+  nextAttemptAt      DateTime?
+  leaseOwner         String?
+  leaseExpiresAt     DateTime?
+  saveAttemptedAt    DateTime?
+  lastErrorCode      String?
+  lastErrorMessage   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  completedAt        DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([action, status])
 }
 
 model GoogleCalendarOutboundDeletion {

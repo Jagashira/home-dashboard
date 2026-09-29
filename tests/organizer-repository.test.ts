@@ -29,6 +29,8 @@ import {
   updateOrganizerTimeBlock
 } from "../lib/organizer/repository";
 import { tokyoDayBounds } from "../lib/organizer/dates";
+import { runTimeTreeOutboundDryRun } from "../lib/timetree/outbound-service";
+import { timeTreeDesiredPayload } from "../lib/timetree/payload";
 import {
   validateEventPayload,
   validateRoutineCompletionPayload,
@@ -60,6 +62,12 @@ before(async () => {
   sqlite.exec(
     readFileSync(
       path.resolve(process.cwd(), "prisma/migrations/20260927000100_add_google_calendar_outbound/migration.sql"),
+      "utf8"
+    )
+  );
+  sqlite.exec(
+    readFileSync(
+      path.resolve(process.cwd(), "prisma/migrations/20260929000100_add_timetree_outbound_foundation/migration.sql"),
       "utf8"
     )
   );
@@ -115,6 +123,92 @@ test("Event CRUD validates and returns a Tokyo-day range", async () => {
   assert.equal(updated.location, "Online");
   await deleteOrganizerEvent(created.id, client);
   assert.equal((await listOrganizerEvents(tokyoDayBounds("2026-09-24"), client)).length, 0);
+});
+
+test("shared Event writes a transactional TimeTree create operation", async () => {
+  const created = await createOrganizerEvent(
+    validateEventPayload({
+      title: "共有予定",
+      category: "life",
+      startAt: "2026-09-29T10:00:00.000Z",
+      endAt: "2026-09-29T11:00:00.000Z",
+      shareWithPartner: true
+    }),
+    client
+  );
+  assert.equal(created.timetreeSyncStatus, "pending");
+  const operation = await client.timeTreeOutboundOperation.findUnique({ where: { organizerEventId: created.id } });
+  assert.equal(operation?.action, "create");
+  assert.equal(JSON.parse(operation!.payloadJson).organizerEventId, created.id);
+  await deleteOrganizerEvent(created.id, client);
+  assert.equal(await client.timeTreeOutboundOperation.findUnique({ where: { organizerEventId: created.id } }), null);
+});
+
+test("linked TimeTree Event produces update, unshare, and deletion tombstones", async () => {
+  const created = await createOrganizerEvent(
+    validateEventPayload({
+      title: "同期済み予定",
+      category: "life",
+      startAt: "2026-09-29T10:00:00.000Z",
+      endAt: "2026-09-29T11:00:00.000Z",
+      shareWithPartner: false
+    }),
+    client
+  );
+  await client.organizerEvent.update({
+    where: { id: created.id },
+    data: { shareWithPartner: true, timetreeEventId: "tt-event-1", timetreeBaseHash: "old", timetreeSyncStatus: "synced" }
+  });
+  await updateOrganizerEvent(created.id, validateEventPayload({ title: "変更後" }, true), client);
+  assert.equal((await client.timeTreeOutboundOperation.findUnique({ where: { organizerEventId: created.id } }))?.action, "update");
+  await updateOrganizerEvent(created.id, validateEventPayload({ shareWithPartner: false }, true), client);
+  assert.equal((await client.timeTreeOutboundOperation.findUnique({ where: { organizerEventId: created.id } }))?.action, "delete");
+  await deleteOrganizerEvent(created.id, client);
+  assert.equal((await client.timeTreeOutboundOperation.findUnique({ where: { organizerEventId: created.id } }))?.action, "delete");
+});
+
+test("public Event validation rejects synchronization metadata", () => {
+  assert.throws(
+    () => validateEventPayload({ title: "x", category: "life", startAt: "2026-09-29T10:00:00Z", endAt: "2026-09-29T11:00:00Z", timetreeEventId: "unsafe" }),
+    /同期処理だけ/
+  );
+});
+
+test("TimeTree outbound dry-run reports candidates without changing the database", async () => {
+  const created = await createOrganizerEvent(
+    validateEventPayload({
+      title: "dry-run共有予定",
+      category: "life",
+      startAt: "2026-09-30T10:00:00.000Z",
+      endAt: "2026-09-30T11:00:00.000Z",
+      shareWithPartner: true
+    }),
+    client
+  );
+  const before = await client.timeTreeOutboundOperation.findUniqueOrThrow({ where: { organizerEventId: created.id } });
+  const result = await runTimeTreeOutboundDryRun(client);
+  const after = await client.timeTreeOutboundOperation.findUniqueOrThrow({ where: { organizerEventId: created.id } });
+  assert.equal(result.dryRun, true);
+  assert.equal(result.timeTreeWriteCount, 0);
+  assert.equal(result.items.some((item) => item.organizerEventId === created.id && item.action === "create"), true);
+  assert.deepEqual(after, before);
+  await deleteOrganizerEvent(created.id, client);
+});
+
+test("TimeTree payload keeps Tokyo all-day dates separate from instants", () => {
+  const payload = timeTreeDesiredPayload({
+    id: "event-all-day",
+    title: "終日予定",
+    description: null,
+    startAt: new Date("2026-09-29T15:00:00.000Z"),
+    endAt: new Date("2026-09-30T15:00:00.000Z"),
+    allDay: true,
+    location: null,
+    startDate: null,
+    endDateExclusive: null
+  });
+  assert.equal(payload.startDate, "2026-09-30");
+  assert.equal(payload.endDateExclusive, "2026-10-01");
 });
 
 test("Task-TimeBlock relation supports multiple blocks and unscheduled detection", async () => {

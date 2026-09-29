@@ -2,11 +2,9 @@ import {
   ORGANIZER_CATEGORIES,
   ORGANIZER_TASK_STATUSES,
   ORGANIZER_TIME_BLOCK_STATUSES,
-  TIMETREE_SYNC_STATUSES,
   type OrganizerCategory,
   type OrganizerTaskStatus,
-  type OrganizerTimeBlockStatus,
-  type TimeTreeSyncStatus
+  type OrganizerTimeBlockStatus
 } from "./constants";
 import { isDateOnly } from "./dates";
 
@@ -144,12 +142,17 @@ export type EventWrite = {
   location?: string | null;
   shareWithPartner?: boolean;
   googleCalendarEventId?: string | null;
-  timetreeEventId?: string | null;
-  timetreeSyncStatus?: TimeTreeSyncStatus;
 };
 
 export function validateEventPayload(value: unknown, partial = false): EventWrite {
   const input = record(value);
+  const protectedFields = ["timetreeEventId", "timetreeSyncStatus"];
+  const suppliedProtectedField = protectedFields.find((field) => field in input);
+  if (suppliedProtectedField) {
+    throw new OrganizerValidationError(`${suppliedProtectedField}は同期処理だけが変更できます。`, {
+      [suppliedProtectedField]: "このフィールドは直接変更できません。"
+    });
+  }
   const output: EventWrite = {};
   if (!partial || "title" in input) output.title = text(input.title, "title", true)!;
   if (!partial || "category" in input) output.category = oneOf(input.category, ORGANIZER_CATEGORIES, "category");
@@ -162,12 +165,6 @@ export function validateEventPayload(value: unknown, partial = false): EventWrit
     output.shareWithPartner = strictBoolean(input.shareWithPartner, "shareWithPartner", false);
   }
   if ("googleCalendarEventId" in input) output.googleCalendarEventId = text(input.googleCalendarEventId, "googleCalendarEventId");
-  if ("timetreeEventId" in input) output.timetreeEventId = text(input.timetreeEventId, "timetreeEventId");
-  if ("timetreeSyncStatus" in input) {
-    output.timetreeSyncStatus = oneOf(input.timetreeSyncStatus, TIMETREE_SYNC_STATUSES, "timetreeSyncStatus");
-  } else if (!partial) {
-    output.timetreeSyncStatus = "not_requested";
-  }
   if (output.startAt && output.endAt && output.endAt <= output.startAt) {
     throw new OrganizerValidationError("終了日時は開始日時より後にしてください。", { endAt: "開始日時より後にしてください。" });
   }

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { tokyoDayBounds } from "./dates";
+import { createTimeTreeDeletionTombstone, reconcileTimeTreeOutbox } from "@/lib/timetree/outbox";
 import {
   OrganizerConflictError,
   OrganizerValidationError,
@@ -106,20 +107,23 @@ export async function getOrganizerEvent(id: string, db: OrganizerDb = prisma) {
 }
 
 export async function createOrganizerEvent(input: EventWrite, db: OrganizerDb = prisma) {
-  return db.organizerEvent.create({
-    data: {
-      title: input.title!,
-      description: input.description ?? null,
-      category: input.category!,
-      startAt: input.startAt!,
-      endAt: input.endAt!,
-      allDay: input.allDay ?? false,
-      location: input.location ?? null,
-      shareWithPartner: input.shareWithPartner ?? false,
-      googleCalendarEventId: input.googleCalendarEventId ?? null,
-      timetreeEventId: input.timetreeEventId ?? null,
-      timetreeSyncStatus: input.timetreeSyncStatus ?? "not_requested"
-    }
+  return db.$transaction(async (transaction) => {
+    const event = await transaction.organizerEvent.create({
+      data: {
+        title: input.title!,
+        description: input.description ?? null,
+        category: input.category!,
+        startAt: input.startAt!,
+        endAt: input.endAt!,
+        allDay: input.allDay ?? false,
+        location: input.location ?? null,
+        shareWithPartner: input.shareWithPartner ?? false,
+        googleCalendarEventId: input.googleCalendarEventId ?? null,
+        timetreeSyncStatus: input.shareWithPartner ? "pending" : "not_requested"
+      }
+    });
+    await reconcileTimeTreeOutbox(transaction, event);
+    return transaction.organizerEvent.findUniqueOrThrow({ where: { id: event.id } });
   });
 }
 
@@ -131,7 +135,11 @@ export async function updateOrganizerEvent(id: string, input: EventWrite, db: Or
   if (endAt <= startAt) {
     throw new OrganizerValidationError("終了日時は開始日時より後にしてください。", { endAt: "開始日時より後にしてください。" });
   }
-  return db.organizerEvent.update({ where: { id }, data: input });
+  return db.$transaction(async (transaction) => {
+    const event = await transaction.organizerEvent.update({ where: { id }, data: input });
+    await reconcileTimeTreeOutbox(transaction, event);
+    return transaction.organizerEvent.findUniqueOrThrow({ where: { id } });
+  });
 }
 
 export async function deleteOrganizerEvent(id: string, db: OrganizerDb = prisma) {
@@ -151,6 +159,7 @@ export async function deleteOrganizerEvent(id: string, db: OrganizerDb = prisma)
         }
       });
     }
+    await createTimeTreeDeletionTombstone(transaction, event);
     return transaction.organizerEvent.delete({ where: { id } });
   });
 }
