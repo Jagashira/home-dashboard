@@ -7,6 +7,7 @@ type TimeTreeEventState = TimeTreeEventSource & {
   timetreeEventId: string | null;
   timetreeEventUrl: string | null;
   timetreeBaseHash: string | null;
+  timetreeBasePayloadJson: string | null;
 };
 
 function operationData(event: TimeTreeEventState, action: "create" | "update" | "delete") {
@@ -17,6 +18,8 @@ function operationData(event: TimeTreeEventState, action: "create" | "update" | 
     status: "pending",
     idempotencyKey: `${event.id}:${action}:${desiredHash}`,
     payloadJson: JSON.stringify(payload),
+    basePayloadJson: event.timetreeBasePayloadJson,
+    baseHash: event.timetreeBaseHash,
     desiredHash,
     timetreeCalendarId: event.timetreeCalendarId,
     timetreeEventId: event.timetreeEventId,

@@ -242,6 +242,7 @@ model OrganizerEvent {
   timetreeCalendarId     String?
   timetreeEventUrl       String?
   timetreeBaseHash       String?
+  timetreeBasePayloadJson String?
   timetreeLastSyncedAt   DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -273,6 +274,8 @@ model TimeTreeOutboundOperation {
   status             String    @default("pending")
   idempotencyKey     String    @unique
   payloadJson        String
+  basePayloadJson    String?
+  baseHash           String?
   desiredHash        String?
   timetreeCalendarId String?
   timetreeEventId    String?

@@ -35,16 +35,19 @@ export function timeTreeDesiredPayload(event: TimeTreeEventSource): TimeTreeDesi
     organizerEventId: event.id,
     ownershipMarker: `${TIMETREE_MASTER_MARKER_PREFIX}${event.id}`,
     title: event.title,
-    description: event.description,
+    description: event.description?.trim() || null,
     startAt: event.startAt.toISOString(),
     endAt: event.endAt.toISOString(),
     allDay: event.allDay,
     startDate,
     endDateExclusive,
-    location: event.location
+    location: event.location?.trim() || null
   };
 }
 
 export function timeTreePayloadHash(payload: TimeTreeDesiredPayload): string {
-  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  const canonical = Object.fromEntries(
+    Object.entries(payload).sort(([left], [right]) => left.localeCompare(right))
+  );
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }

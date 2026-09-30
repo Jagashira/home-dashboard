@@ -1,5 +1,10 @@
 import { prisma } from "../lib/prisma";
-import { getTimeTreeOutboundStatus, runTimeTreeOutboundDryRun } from "../lib/timetree/outbound-service";
+import { getTimeTreeOutboundStatus, runTimeTreeOutbound } from "../lib/timetree/outbound-service";
+
+function option(name: string) {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
 
 async function main() {
   const command = process.argv[2];
@@ -8,13 +13,16 @@ async function main() {
     return;
   }
   if (command === "run") {
-    if (!process.argv.includes("--dry-run")) {
-      throw new Error("Phase 1ではTimeTree実書き込みは無効です。runには --dry-run が必要です。");
-    }
-    console.log(JSON.stringify(await runTimeTreeOutboundDryRun(), null, 2));
+    const dryRun = process.argv.includes("--dry-run");
+    const limitValue = option("--limit");
+    console.log(JSON.stringify(await runTimeTreeOutbound({
+      dryRun,
+      confirmation: option("--confirm"),
+      limit: limitValue ? Number(limitValue) : undefined
+    }), null, 2));
     return;
   }
-  throw new Error("Usage: timetree:outbound <status|run --dry-run>");
+  throw new Error("Usage: timetree:outbound <status|run --dry-run|run --confirm WRITE_TIMETREE --limit 1>");
 }
 
 main()
