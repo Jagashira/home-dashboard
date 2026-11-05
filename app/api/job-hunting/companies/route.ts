@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureDefaultJobCompanies } from "@/lib/job-companies";
+import { listJobCompanies } from "@/lib/job-companies";
 import { COMPANY_STATUS_OPTIONS } from "@/lib/job-hunting";
 
 const VALID_STATUS = new Set(COMPANY_STATUS_OPTIONS.map((option) => option.value));
@@ -17,10 +17,7 @@ function normalizeOrder(value: unknown, fallback: number) {
 
 export async function GET() {
   try {
-    await ensureDefaultJobCompanies();
-    const companies = await prisma.jobCompany.findMany({
-      orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }]
-    });
+    const companies = await listJobCompanies();
     return NextResponse.json({ ok: true, companies });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "failed" }, { status: 500 });

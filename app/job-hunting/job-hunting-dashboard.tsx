@@ -51,7 +51,7 @@ const emptyCompanyForm: CompanyForm = {
   displayOrder: "0"
 };
 
-function IconEye() {
+function IconEye({ closed = false }: { closed?: boolean }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
@@ -62,7 +62,8 @@ function IconEye() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      {!closed ? <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" /> : null}
+      {closed ? <path d="M4 4l16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /> : null}
     </svg>
   );
 }
@@ -151,17 +152,16 @@ function IconSpark() {
   );
 }
 
-function buildStorageHref(storagePath: string) {
-  const trimmed = storagePath.trim();
+function buildStorageHref(storagePath: string | null | undefined) {
+  const trimmed = storagePath?.trim() ?? "";
   if (!trimmed) return "/storage";
   const params = new URLSearchParams({ library: "storage", path: trimmed });
   return `/storage?${params.toString()}`;
 }
 
 function statusSortRank(status: CompanyEntryStatus) {
-  if (status === "finished") return 99;
-  if (status === "internship_done") return 95;
-  if (status === "offer") return 85;
+  if (status === "offer") return -1;
+  if (status === "finished") return 1;
   return 0;
 }
 
@@ -200,6 +200,19 @@ function StatCard({
   );
 }
 
+function fallbackCopyText(value: string) {
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  return copied;
+}
+
 export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData }) {
   const [sites, setSites] = useState<JobSite[]>(data.sites);
   const [companies, setCompanies] = useState<JobCompany[]>(data.companies);
@@ -214,7 +227,13 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
   const [credentialTarget, setCredentialTarget] = useState<CredentialTarget>(null);
   const [siteEditorOpen, setSiteEditorOpen] = useState(false);
   const [companyEditorOpen, setCompanyEditorOpen] = useState(false);
+  const [orderEditorOpen, setOrderEditorOpen] = useState(false);
+  const [orderDraft, setOrderDraft] = useState<Record<string, string>>({});
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [orderStatus, setOrderStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const [credentialPasswordVisible, setCredentialPasswordVisible] = useState(false);
+  const [editorPasswordVisible, setEditorPasswordVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
   const sortedCompanies = [...companies].sort((left, right) => {
     const statusDiff = statusSortRank(left.status) - statusSortRank(right.status);
@@ -246,18 +265,21 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
     setEditingSiteId(null);
     setSiteForm(emptySiteForm);
     setSiteEditorOpen(false);
+    setEditorPasswordVisible(false);
   };
 
   const resetCompanyForm = () => {
     setEditingCompanyId(null);
     setCompanyForm(emptyCompanyForm);
     setCompanyEditorOpen(false);
+    setEditorPasswordVisible(false);
   };
 
   const startCreateSite = () => {
     setEditingSiteId(null);
     setSiteForm({ ...emptySiteForm, displayOrder: String((sites.at(-1)?.displayOrder ?? 0) + 10) });
     setSiteStatus("");
+    setEditorPasswordVisible(false);
     setSiteEditorOpen(true);
   };
 
@@ -265,12 +287,14 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
     setEditingCompanyId(null);
     setCompanyForm({ ...emptyCompanyForm, displayOrder: String((companies.at(-1)?.displayOrder ?? 0) + 10) });
     setCompanyStatus("");
+    setEditorPasswordVisible(false);
     setCompanyEditorOpen(true);
   };
 
   const startEditSite = (site: JobSite) => {
     setEditingSiteId(site.id);
     setSiteStatus("");
+    setEditorPasswordVisible(false);
     setSiteForm({
       name: site.name,
       purpose: site.purpose,
@@ -285,6 +309,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
   const startEditCompany = (company: JobCompany) => {
     setEditingCompanyId(company.id);
     setCompanyStatus("");
+    setEditorPasswordVisible(false);
     setCompanyForm({
       companyName: company.companyName,
       myPageUrl: company.myPageUrl,
@@ -295,6 +320,43 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
       displayOrder: String(company.displayOrder)
     });
     setCompanyEditorOpen(true);
+  };
+
+  const openOrderEditor = () => {
+    setOrderDraft(Object.fromEntries(sortedCompanies.map((company) => [company.id, String(company.displayOrder)])));
+    setOrderStatus("");
+    setOrderEditorOpen(true);
+  };
+
+  const saveCompanyOrder = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setOrderSaving(true);
+    setOrderStatus("");
+    setCompanyStatus("");
+    try {
+      await Promise.all(
+        sortedCompanies.map(async (company) => {
+          const displayOrder = Number(orderDraft[company.id] ?? company.displayOrder);
+          if (!Number.isFinite(displayOrder)) throw new Error(`${company.companyName} の表示順を数字で入力してください`);
+          if (displayOrder === company.displayOrder) return;
+
+          const response = await fetch(`/api/job-hunting/companies/${company.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ displayOrder })
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) throw new Error(payload.error ?? `${company.companyName} の更新に失敗しました`);
+        })
+      );
+      await refreshCompanies();
+      setCompanyStatus("企業の並び順を更新しました");
+      setOrderEditorOpen(false);
+    } catch (error) {
+      setOrderStatus(error instanceof Error ? error.message : "並び順の更新に失敗しました");
+    } finally {
+      setOrderSaving(false);
+    }
   };
 
   const submitSite = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -387,7 +449,11 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
       return;
     }
     try {
-      await navigator.clipboard.writeText(value);
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else if (!fallbackCopyText(value)) {
+        throw new Error("copy failed");
+      }
       setCopyStatus(`${label} をコピーしました`);
     } catch {
       setCopyStatus(`${label} のコピーに失敗しました`);
@@ -403,30 +469,38 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
             aria-modal="true"
             aria-label="credentials"
             onClick={(event) => {
-              if (event.target === event.currentTarget) setCredentialTarget(null);
+              if (event.target === event.currentTarget) {
+                setCredentialTarget(null);
+                setCredentialPasswordVisible(false);
+              }
             }}
           >
-            <section className="modal-card job-credential-modal" onClick={(event) => event.stopPropagation()}>
+            <section className="modal-card job-modal-surface job-credential-modal" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
                 <h3>{credentialTarget.title}</h3>
-                <button className="button-secondary" type="button" onClick={() => setCredentialTarget(null)}>
+                <button className="button-secondary" type="button" onClick={() => { setCredentialTarget(null); setCredentialPasswordVisible(false); }}>
                   閉じる
                 </button>
               </div>
               <div className="stack-md">
                 <div className="job-copy-field">
-                  <label className="field">
+                  <label className="field job-credential-field">
                     <span>Login ID</span>
-                    <input value={credentialTarget.loginId} readOnly />
+                    <input value={credentialTarget.loginId || "未登録"} readOnly onFocus={(event) => event.currentTarget.select()} />
                   </label>
                   <button className="button-secondary" type="button" onClick={() => copyCredential("Login ID", credentialTarget.loginId)}>
                     コピー
                   </button>
                 </div>
                 <div className="job-copy-field">
-                  <label className="field">
+                  <label className="field job-credential-field">
                     <span>Password</span>
-                    <input value={credentialTarget.password || "未登録"} readOnly />
+                    <div className="job-password-row">
+                      <input type={credentialPasswordVisible ? "text" : "password"} value={credentialTarget.password || "未登録"} readOnly onFocus={(event) => event.currentTarget.select()} />
+                      <button className="icon-button" type="button" aria-label={credentialPasswordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setCredentialPasswordVisible((current) => !current)}>
+                        <IconEye closed={!credentialPasswordVisible} />
+                      </button>
+                    </div>
                   </label>
                   <button className="button-secondary" type="button" onClick={() => copyCredential("Password", credentialTarget.password)}>
                     コピー
@@ -444,7 +518,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
     mounted && siteEditorOpen
       ? createPortal(
           <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="site editor" onClick={(event) => event.target === event.currentTarget && resetSiteForm()}>
-            <section className="modal-card job-site-editor-modal" onClick={(event) => event.stopPropagation()}>
+            <section className="modal-card job-modal-surface job-site-editor-modal" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
                 <h3>{editingSiteId ? "サイトを編集" : "サイトを追加"}</h3>
                 <button className="button-secondary" type="button" onClick={resetSiteForm}>
@@ -458,7 +532,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                   <label className="field"><span>URL</span><input required value={siteForm.url} onChange={(event) => setSiteForm((prev) => ({ ...prev, url: event.target.value }))} /></label>
                   <label className="field"><span>表示順</span><input inputMode="numeric" value={siteForm.displayOrder} onChange={(event) => setSiteForm((prev) => ({ ...prev, displayOrder: event.target.value }))} /></label>
                   <label className="field"><span>Login ID</span><input value={siteForm.loginId} onChange={(event) => setSiteForm((prev) => ({ ...prev, loginId: event.target.value }))} /></label>
-                  <label className="field"><span>Password</span><input value={siteForm.password} onChange={(event) => setSiteForm((prev) => ({ ...prev, password: event.target.value }))} /></label>
+                  <label className="field"><span>Password</span><div className="job-password-row"><input type={editorPasswordVisible ? "text" : "password"} autoComplete="current-password" value={siteForm.password} onChange={(event) => setSiteForm((prev) => ({ ...prev, password: event.target.value }))} /><button className="icon-button" type="button" aria-label={editorPasswordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setEditorPasswordVisible((current) => !current)}><IconEye closed={!editorPasswordVisible} /></button></div></label>
                 </div>
                 <div className="job-site-form-actions">
                   <button className="button-primary" disabled={siteSaving} type="submit">{editingSiteId ? "更新する" : "追加する"}</button>
@@ -476,7 +550,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
     mounted && companyEditorOpen
       ? createPortal(
           <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="company editor" onClick={(event) => event.target === event.currentTarget && resetCompanyForm()}>
-            <section className="modal-card job-site-editor-modal" onClick={(event) => event.stopPropagation()}>
+            <section className="modal-card job-modal-surface job-site-editor-modal" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
                 <h3>{editingCompanyId ? "企業を編集" : "企業を追加"}</h3>
                 <button className="button-secondary" type="button" onClick={resetCompanyForm}>
@@ -490,7 +564,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                   <label className="field"><span>マイページ</span><input required value={companyForm.myPageUrl} onChange={(event) => setCompanyForm((prev) => ({ ...prev, myPageUrl: event.target.value }))} /></label>
                   <label className="field"><span>表示順</span><input inputMode="numeric" value={companyForm.displayOrder} onChange={(event) => setCompanyForm((prev) => ({ ...prev, displayOrder: event.target.value }))} /></label>
                   <label className="field"><span>Login ID</span><input value={companyForm.loginId} onChange={(event) => setCompanyForm((prev) => ({ ...prev, loginId: event.target.value }))} /></label>
-                  <label className="field"><span>Password</span><input value={companyForm.password} onChange={(event) => setCompanyForm((prev) => ({ ...prev, password: event.target.value }))} /></label>
+                  <label className="field"><span>Password</span><div className="job-password-row"><input type={editorPasswordVisible ? "text" : "password"} autoComplete="current-password" value={companyForm.password} onChange={(event) => setCompanyForm((prev) => ({ ...prev, password: event.target.value }))} /><button className="icon-button" type="button" aria-label={editorPasswordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setEditorPasswordVisible((current) => !current)}><IconEye closed={!editorPasswordVisible} /></button></div></label>
                   <label className="field"><span>Storage Path</span><input value={companyForm.storagePath} onChange={(event) => setCompanyForm((prev) => ({ ...prev, storagePath: event.target.value }))} placeholder="job-hunting/company-name" /></label>
                 </div>
                 <div className="job-site-form-actions">
@@ -505,10 +579,58 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
         )
       : null;
 
+  const orderEditorModal =
+    mounted && orderEditorOpen
+      ? createPortal(
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="company order editor" onClick={(event) => event.target === event.currentTarget && setOrderEditorOpen(false)}>
+            <section className="modal-card job-modal-surface job-order-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <p className="label-caption">Display Order</p>
+                  <h3>企業の並び順</h3>
+                </div>
+                <button className="button-secondary" type="button" onClick={() => setOrderEditorOpen(false)}>閉じる</button>
+              </div>
+              <p className="job-order-help">小さい数字ほど上に表示されます。内定は常に最上部、終了は常に最下部です。</p>
+              <form className="job-order-form" onSubmit={saveCompanyOrder}>
+                <div className="job-order-list">
+                  {sortedCompanies.map((company, index) => (
+                    <label className="job-order-row" key={company.id}>
+                      <span className="job-order-position">{index + 1}</span>
+                      <span className="job-order-company">
+                        <strong>{company.companyName}</strong>
+                        {company.status === "offer" ? <small>内定のため先頭固定</small> : null}
+                        {company.status === "finished" ? <small>終了のため末尾固定</small> : null}
+                      </span>
+                      <span className={`job-status-badge ${statusTone(company.status)}`}>{statusLabels[company.status]}</span>
+                      <span className="job-order-input">
+                        <span>表示順</span>
+                        <input
+                          inputMode="numeric"
+                          value={orderDraft[company.id] ?? String(company.displayOrder)}
+                          onChange={(event) => setOrderDraft((current) => ({ ...current, [company.id]: event.target.value }))}
+                          aria-label={`${company.companyName} の表示順`}
+                        />
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="job-site-form-actions">
+                  <button className="button-primary" disabled={orderSaving} type="submit">{orderSaving ? "保存中..." : "並び順を保存"}</button>
+                  <button className="button-secondary" disabled={orderSaving} type="button" onClick={() => setOrderEditorOpen(false)}>キャンセル</button>
+                  {orderStatus ? <p className="status-text">{orderStatus}</p> : null}
+                </div>
+              </form>
+            </section>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <>
-      <section className="stack-lg">
-        <section className="panel budget-hero job-hero">
+      <section className="job-workspace job-dashboard stack-lg">
+        <section className="job-hero">
           <div className="budget-grid-bg" aria-hidden="true" />
           <div className="budget-hero-body stack-md">
             <div className="job-hero-grid">
@@ -523,7 +645,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                 <Link className="button-secondary job-action-link" href="https://jagashira.github.io" target="_blank" rel="noreferrer"><IconSpark /><span>俺のポートフォリオ</span></Link>
               </div>
             </div>
-            <section className="job-stat-grid">
+            <section className="job-stat-grid" aria-label="就活サマリー">
               <StatCard label="Active Companies" value={companies.filter((company) => isActiveCompany(company.status)).length} note="進行中の応募先" />
               <StatCard label="Tracked Sites" value={sites.length} note="管理している就活サイト" />
             </section>
@@ -538,6 +660,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                   <p className="label-caption">Companies</p>
                   <h2 className="job-section-title">企業一覧</h2>
                 </div>
+                <button className="button-secondary" type="button" onClick={openOrderEditor}>並び順を編集</button>
               </div>
               <div className="job-site-list">
                 {sortedCompanies.map((company) => (
@@ -555,7 +678,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                       <Link className="icon-button" href={buildStorageHref(company.storagePath)} aria-label={`${company.companyName} のファイルを開く`}>
                         <IconFolder />
                       </Link>
-                      <button className="icon-button" type="button" onClick={() => { setCopyStatus(""); setCredentialTarget({ title: company.companyName, loginId: company.loginId, password: company.password }); }} aria-label={`${company.companyName} の認証情報を表示`}><IconEye /></button>
+                      <button className="icon-button" type="button" onClick={() => { setCopyStatus(""); setCredentialPasswordVisible(false); setCredentialTarget({ title: company.companyName, loginId: company.loginId, password: company.password }); }} aria-label={`${company.companyName} の認証情報を表示`}><IconEye /></button>
                       <button className="icon-button" type="button" onClick={() => startEditCompany(company)} aria-label={`${company.companyName} を編集`}><IconEdit /></button>
                       <button className="icon-button danger" type="button" onClick={() => deleteCompany(company)} aria-label={`${company.companyName} を削除`}><IconTrash /></button>
                     </div>
@@ -584,7 +707,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
                     </div>
                     <div className="job-site-row-actions">
                       <Link className="button-secondary" href={site.url} target="_blank" rel="noreferrer">開く</Link>
-                      <button className="icon-button" type="button" onClick={() => { setCopyStatus(""); setCredentialTarget({ title: site.name, loginId: site.loginId, password: site.password }); }} aria-label={`${site.name} の認証情報を表示`}><IconEye /></button>
+                      <button className="icon-button" type="button" onClick={() => { setCopyStatus(""); setCredentialPasswordVisible(false); setCredentialTarget({ title: site.name, loginId: site.loginId, password: site.password }); }} aria-label={`${site.name} の認証情報を表示`}><IconEye /></button>
                       <button className="icon-button" type="button" onClick={() => startEditSite(site)} aria-label={`${site.name} を編集`}><IconEdit /></button>
                       <button className="icon-button danger" type="button" onClick={() => deleteSite(site)} aria-label={`${site.name} を削除`}><IconTrash /></button>
                     </div>
@@ -602,6 +725,7 @@ export function JobHuntingDashboard({ data }: { data: JobHuntingDashboardData })
       {credentialModal}
       {siteEditorModal}
       {companyEditorModal}
+      {orderEditorModal}
     </>
   );
 }

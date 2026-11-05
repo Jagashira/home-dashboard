@@ -35,6 +35,19 @@ function countLabel(count: number) {
   return `${count}件`;
 }
 
+function fallbackCopyText(value: string) {
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  return copied;
+}
+
 function IconEye({ closed = false }: { closed?: boolean }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -65,6 +78,7 @@ export function JobCompanyDetailPage({ initialData }: { initialData: JobCompanyD
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [showCredentialModal, setShowCredentialModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
   const [companyStatus, setCompanyStatus] = useState("");
   const [credentialStatus, setCredentialStatus] = useState("");
   const [essayForm, setEssayForm] = useState<EssayForm>(emptyEssayForm);
@@ -86,19 +100,44 @@ export function JobCompanyDetailPage({ initialData }: { initialData: JobCompanyD
 
   const saveStatus = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const { response, payload } = await jsonRequest(baseUrl, { method: "PATCH", body: JSON.stringify({ status: companyForm.status }) });
-    if (!response.ok || !payload.ok) {
-      setCompanyStatus(payload.error ?? "保存失敗");
+    setStatusSaving(true);
+    setCompanyStatus("");
+    try {
+      const { response, payload } = await jsonRequest(baseUrl, { method: "PATCH", body: JSON.stringify({ status: companyForm.status }) });
+      if (!response.ok || !payload.ok) {
+        setCompanyStatus(payload.error ?? "保存失敗");
+        return;
+      }
+      setData((current) => ({
+        ...current,
+        company: {
+          ...current.company,
+          status: companyForm.status
+        }
+      }));
+      setCompanyStatus("Status を更新しました");
+    } catch {
+      setCompanyStatus("Status の更新に失敗しました");
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  const copyCredential = async (label: string, value: string) => {
+    if (!value) {
+      setCredentialStatus(`${label} は未登録です`);
       return;
     }
-    setData((current) => ({
-      ...current,
-      company: {
-        ...current.company,
-        status: companyForm.status,
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else if (!fallbackCopyText(value)) {
+        throw new Error("copy failed");
       }
-    }));
-    setCompanyStatus("Status を更新しました");
+      setCredentialStatus(`${label} をコピーしました`);
+    } catch {
+      setCredentialStatus(`${label} のコピーに失敗しました`);
+    }
   };
 
   const saveCredentials = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -243,7 +282,9 @@ export function JobCompanyDetailPage({ initialData }: { initialData: JobCompanyD
             </label>
             <div className="job-inline-form-actions">
               {companyStatus ? <p className="status-text">{companyStatus}</p> : <span />}
-              <button className="button-primary" type="submit">保存</button>
+              <button className="button-primary" type="submit" disabled={statusSaving}>
+                {statusSaving ? "保存中..." : "保存"}
+              </button>
             </div>
           </form>
 
@@ -527,7 +568,7 @@ export function JobCompanyDetailPage({ initialData }: { initialData: JobCompanyD
             }
           }}
         >
-          <section className="modal-card job-credential-modal" onClick={(event) => event.stopPropagation()}>
+          <section className="modal-card job-modal-surface job-credential-modal" onClick={(event) => event.stopPropagation()}>
             <div className="task-section-heading">
               <div>
                 <p className="label-caption">Credentials</p>
@@ -537,14 +578,17 @@ export function JobCompanyDetailPage({ initialData }: { initialData: JobCompanyD
             <form className="job-detail-form" onSubmit={saveCredentials}>
               <label className="field">
                 <span>Login ID</span>
-                <input
-                  value={companyForm.loginId}
-                  onChange={(event) => setCompanyForm((prev) => ({ ...prev, loginId: event.target.value }))}
-                />
+                <div className="job-copy-input-row">
+                  <input
+                    value={companyForm.loginId}
+                    onChange={(event) => setCompanyForm((prev) => ({ ...prev, loginId: event.target.value }))}
+                  />
+                  <button className="button-secondary" type="button" onClick={() => copyCredential("Login ID", companyForm.loginId)}>コピー</button>
+                </div>
               </label>
               <label className="field">
                 <span>Password</span>
-                <div className="job-password-row">
+                <div className="job-password-row job-password-actions">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={companyForm.password}
@@ -553,6 +597,7 @@ export function JobCompanyDetailPage({ initialData }: { initialData: JobCompanyD
                   <button className="icon-button" type="button" aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setShowPassword((current) => !current)}>
                     <IconEye closed={!showPassword} />
                   </button>
+                  <button className="button-secondary" type="button" onClick={() => copyCredential("Password", companyForm.password)}>コピー</button>
                 </div>
               </label>
               <div className="job-form-actions">

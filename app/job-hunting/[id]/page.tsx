@@ -18,8 +18,8 @@ export default async function JobCompanyPage({ params }: Params) {
   const company = detail.company;
 
   return (
-    <section className="stack-lg">
-      <section className="panel budget-hero job-hero">
+    <section className="job-workspace job-company-page stack-lg">
+      <section className="job-hero job-company-hero">
         <div className="budget-grid-bg" aria-hidden="true" />
         <div className="budget-hero-body stack-md">
           <div className="job-company-page-head">
@@ -33,6 +33,12 @@ export default async function JobCompanyPage({ params }: Params) {
               </Link>
               <Link className="button-secondary" href="/job-hunting">
                 一覧へ戻る
+              </Link>
+              <Link
+                className="button-secondary"
+                href={company.storagePath ? `/storage?library=storage&path=${encodeURIComponent(company.storagePath)}` : "/storage"}
+              >
+                ファイルを開く
               </Link>
             </div>
           </div>

@@ -114,6 +114,23 @@ docker compose logs -f app
 - 公開ポート: `3000`
 - DB永続化: 親プロジェクトの `data/news/news.db` をコンテナ内 `/data/news/news.db` として利用
 
+## home-server 本番更新
+
+home-server では `home-platform` 側の Docker Compose が `home-platform-home-dashboard`
+として `3000` 番を公開しています。このリポジトリ直下で単体 `docker compose up` を実行すると
+`3000` 番が競合するため、本番更新は次のスクリプトを使います。
+
+```bash
+./scripts/home-server-bootstrap.sh
+```
+
+既定では `/home/home-server/home-platform` を起動元として使い、毎朝6時のニュース取得 cron も
+冪等に設定します。ニュース取得を手動実行まで含めたい場合は次のようにします。
+
+```bash
+RUN_NEWS_FETCH=1 ./scripts/home-server-bootstrap.sh
+```
+
 ## DB初期化
 
 ```bash
@@ -139,10 +156,10 @@ npm run db:seed
 
 ## cron から /api/fetch を叩く例
 
-毎朝8時:
+毎朝6時:
 
 ```cron
-0 8 * * * curl -X POST "http://127.0.0.1:3000/api/fetch?secret=YOUR_FETCH_SECRET" >/tmp/news-fetch.log 2>&1
+0 6 * * * curl -X POST "http://127.0.0.1:3000/api/fetch?secret=YOUR_FETCH_SECRET" >/tmp/news-fetch.log 2>&1
 ```
 
 `FETCH_SECRET` を設定した場合は `x-fetch-secret` ヘッダまたは `?secret=` が必須です。
